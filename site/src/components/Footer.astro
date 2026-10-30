@@ -24,6 +24,7 @@ const year = new Date().getFullYear();
       <div>
         <h2 class="footer-heading">lightning apps</h2>
         <ul>
+          <li><a href={`${localizePath(lang)}#projects`}>{t('nav.projects')}</a></li>
           <li><a href={localizePath(lang, 'newsroom')}>{t('nav.newsroom')}</a></li>
           <li><a href={localizePath(lang, 'about')}>{t('nav.about')}</a></li>
           <li><a href={localizePath(lang, 'rss.xml').replace(/\/$/, '')}>{t('footer.rss')}</a></li>

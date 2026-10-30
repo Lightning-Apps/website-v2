@@ -8,6 +8,7 @@ const ui = {
   de: {
     'nav.apps': 'Our Apps',
     'nav.allApps': 'Alle Apps ansehen',
+    'nav.projects': 'Projekte',
     'nav.newsroom': 'Newsroom',
     'nav.about': 'About Us',
     'nav.menu': 'Menü',
@@ -79,6 +80,7 @@ const ui = {
   en: {
     'nav.apps': 'Our Apps',
     'nav.allApps': 'View all apps',
+    'nav.projects': 'Projects',
     'nav.newsroom': 'Newsroom',
     'nav.about': 'About Us',
     'nav.menu': 'Menu',

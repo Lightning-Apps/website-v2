@@ -53,7 +53,7 @@
 
 /* Base */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--nav-h) + 56px); }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: var(--nav-h); scroll-behavior: smooth; }
 body {
   margin: 0;
   font-family: var(--font);
@@ -152,6 +152,7 @@ a.card:hover { text-decoration: none; transform: scale(1.015); box-shadow: 0 8px
 .js .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.9s var(--ease), transform 0.9s var(--ease); }
 .js .reveal.is-visible { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   .js .reveal { opacity: 1; transform: none; transition: none; }
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

@@ -13,6 +13,8 @@ const t = useTranslations(lang);
 const apps = await getApps();
 const path = Astro.url.pathname;
 const isActive = (section: string) => path.startsWith(localizePath(lang, section));
+// Projects have no page of their own yet: jump to the section on the home page.
+const projectsHref = `${localizePath(lang)}#projects`;
 ---
 
 <header class="globalnav" data-nav>
@@ -37,9 +39,11 @@ const isActive = (section: string) => path.startsWith(localizePath(lang, section
         </a>
         <div class="mega" id="apps-menu" data-menu-panel>
           <div class="mega-inner container-wide">
-            <div class="mega-main">
+            <div class="mega-head">
               <p class="mega-label">{t('nav.apps')}</p>
-              <ul class="mega-apps">
+              <a class="mega-all chevron-link" href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a>
+            </div>
+            <ul class="mega-apps">
                 {
                   apps.map((app) => (
                     <li>
@@ -53,18 +57,12 @@ const isActive = (section: string) => path.startsWith(localizePath(lang, section
                     </li>
                   ))
                 }
-              </ul>
-            </div>
-            <div class="mega-side">
-              <p class="mega-label">lightning apps</p>
-              <ul>
-                <li><a href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a></li>
-                <li><a href={localizePath(lang, 'newsroom')}>{t('nav.newsroom')}</a></li>
-                <li><a href={localizePath(lang, 'about')}>{t('nav.about')}</a></li>
-              </ul>
-            </div>
+            </ul>
           </div>
         </div>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href={projectsHref}>{t('nav.projects')}</a>
       </li>
       <li class="nav-item">
         <a class:list={['nav-link', { active: isActive('newsroom') }]} href={localizePath(lang, 'newsroom')}>{t('nav.newsroom')}</a>
@@ -115,6 +113,7 @@ const isActive = (section: string) => path.startsWith(localizePath(lang, section
           <li><a href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a></li>
         </ul>
       </details>
+      <a class="mobile-link" href={projectsHref}>{t('nav.projects')}</a>
       <a class="mobile-link" href={localizePath(lang, 'newsroom')}>{t('nav.newsroom')}</a>
       <a class="mobile-link" href={localizePath(lang, 'about')}>{t('nav.about')}</a>
     </div>
@@ -166,6 +165,23 @@ const isActive = (section: string) => path.startsWith(localizePath(lang, section
     document.documentElement.style.overflow = open ? 'hidden' : '';
   }
   toggle.addEventListener('click', () => setMobile(mobileMenu.hidden === true));
+  mobileMenu.addEventListener('click', (e) => {
+    const link = (e.target as HTMLElement).closest('a');
+    if (!link) return;
+    setMobile(false);
+    // Same-page anchor: the browser would ignore it while the menu still locks scrolling,
+    // so scroll ourselves once the menu is closed.
+    const url = new URL(link.href);
+    if (url.pathname === location.pathname && url.hash) {
+      e.preventDefault();
+      history.pushState(null, '', url.hash);
+      const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      setTimeout(() => document.querySelector(url.hash)?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' }));
+    }
+  });
+  item.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.mega a')) setOpen(false);
+  });
   desktop.addEventListener('change', () => {
     setMobile(false);
     setOpen(false);
@@ -267,27 +283,31 @@ const isActive = (section: string) => path.startsWith(localizePath(lang, section
     clip-path: inset(0 0 0 0);
     transition: clip-path 0.45s var(--ease), opacity 0.25s var(--ease), visibility 0s;
   }
-  .mega-inner {
-    display: grid;
-    grid-template-columns: 1fr 220px;
-    gap: 48px;
-    padding: 36px 0 48px;
+  .mega-inner { padding: 32px 0 44px; }
+  .mega-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
   }
-  .mega-label { color: var(--text-tertiary); font-size: 12px; margin-bottom: 14px; }
+  .mega-label { color: var(--text-tertiary); font-size: 12px; }
+  .mega-all { font-size: 14px; font-weight: 600; }
+  /* The list is pulled out by the item padding so icons line up with the label,
+     while hover backgrounds stay inside their own grid cell. */
   .mega-apps {
     list-style: none;
-    margin: 0;
+    margin: 0 -10px;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 6px 24px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 4px 16px;
   }
   .mega-app {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 8px;
-    margin: -8px;
+    padding: 10px;
     border-radius: 14px;
     color: var(--text);
     transition: background 0.2s var(--ease);
@@ -296,8 +316,6 @@ const isActive = (section: string) => path.startsWith(localizePath(lang, section
   .mega-app-text { display: grid; }
   .mega-app-name { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; }
   .mega-app-tagline { color: var(--text-secondary); font-size: 12px; }
-  .mega-side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .mega-side a { color: var(--text); font-size: 14px; font-weight: 600; }
 
   .nav-scrim {
     position: fixed;
