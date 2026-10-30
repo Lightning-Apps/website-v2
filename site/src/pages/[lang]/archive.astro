@@ -94,6 +94,9 @@ const [apps, projects] = await Promise.all([getArchivedApps(), getArchivedProjec
   }
   .archive-link { color: var(--link); margin-top: 4px; }
   /* Archived icons are muted until you point at them. */
-  .archive-icon { display: inline-flex; filter: grayscale(0.7); opacity: 0.85; transition: filter 0.3s var(--ease), opacity 0.3s var(--ease); }
-  .archive-card:hover .archive-icon, .archive-card:focus-visible .archive-icon { filter: none; opacity: 1; }
+  /* The filter sits on the icon itself: on a wrapper, Safari draws the rounded corners wrongly. */
+  .archive-icon { display: block; flex: none; line-height: 0; }
+  .archive-icon :global(.app-icon) { filter: grayscale(0.7); opacity: 0.85; transition: filter 0.3s var(--ease), opacity 0.3s var(--ease); }
+  .archive-card:hover .archive-icon :global(.app-icon),
+  .archive-card:focus-visible .archive-icon :global(.app-icon) { filter: none; opacity: 1; }
 </style>

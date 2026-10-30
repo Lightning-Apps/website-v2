@@ -20,11 +20,16 @@ const src = media(app.icon_path);
 }
 
 <style>
+  /* Always a rounded square: fixed size, never stretched or shrunk by flex layouts (Safari),
+     and non-square uploads are cropped instead of distorted. */
   .app-icon {
     width: var(--size);
     height: var(--size);
+    max-width: none;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    flex: none;
     border-radius: calc(var(--size) * 0.225);
-    flex-shrink: 0;
   }
   .app-icon-fallback {
     display: inline-grid;
