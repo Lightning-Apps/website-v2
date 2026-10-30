@@ -1,6 +1,8 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import RowActions from '../../components/RowActions.astro';
+import SortHandle from '../../components/SortHandle.astro';
+import Sortable from '../../components/Sortable.astro';
 import { getEntity } from '../../lib/entities';
 import { configError, db, formatDateTime, mediaPublicUrl } from '../../lib/server';
 
@@ -16,6 +18,8 @@ if (!setupError) {
   loadError = error?.message ?? null;
 }
 const deleted = Astro.url.searchParams.get('deleted');
+// News are ordered by date; everything else can be reordered by hand.
+const sortable = entity.key !== 'news';
 const thumbField = entity.key === 'apps' ? 'icon_path' : entity.key === 'news' ? 'cover_path' : null;
 ---
 
@@ -29,6 +33,8 @@ const thumbField = entity.key === 'apps' ? 'icon_path' : entity.key === 'news' ?
   {loadError && <p class="notice notice-error">Fehler beim Laden: {loadError}</p>}
   {deleted && <p class="notice notice-ok">„{deleted}“ wurde gelöscht.</p>}
 
+  {sortable && rows.length > 1 && <Sortable />}
+
   <div class="panel">
     {
       rows.length === 0 ? (
@@ -37,6 +43,7 @@ const thumbField = entity.key === 'apps' ? 'icon_path' : entity.key === 'news' ?
         <table>
           <thead>
             <tr>
+              {sortable && <th><span class="visually-hidden">Verschieben</span></th>}
               {thumbField && <th />}
               <th>Titel</th>
               <th>{entity.key === 'news' ? 'Datum' : 'Reihenfolge'}</th>
@@ -45,18 +52,19 @@ const thumbField = entity.key === 'apps' ? 'icon_path' : entity.key === 'news' ?
               <th><span class="visually-hidden">Aktionen</span></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody data-sortable={sortable ? entity.key : undefined}>
             {rows.map((row) => {
               const thumb = thumbField ? mediaPublicUrl(row[thumbField]) : null;
               const title = row[entity.titleField] || '(ohne Titel)';
               return (
-                <tr>
+                <tr data-id={row.id}>
+                  {sortable && <td class="sort-cell"><SortHandle title={title} /></td>}
                   {thumbField && <td>{thumb ? <img class="thumb" src={thumb} alt="" /> : <span class="thumb" style="display:inline-block" />}</td>}
                   <td>
                     <a href={`/${entity.key}/${row.id}`}><strong>{title}</strong></a>
                     {row.slug && <div class="muted">/{row.slug}</div>}
                   </td>
-                  <td>{entity.key === 'news' ? row.published_at : row.sort_order}</td>
+                  <td data-order-num={sortable ? '' : undefined}>{entity.key === 'news' ? row.published_at : row.sort_order}</td>
                   <td>
                     <span class:list={['pill', row.published ? 'pill-published' : 'pill-draft']}>{row.published ? 'Veröffentlicht' : 'Entwurf'}</span>
                     {row.featured && <span class="pill pill-published">Startseite</span>}

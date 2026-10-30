@@ -2,6 +2,8 @@
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import EntityForm from '../../components/EntityForm.astro';
 import RowActions from '../../components/RowActions.astro';
+import SortHandle from '../../components/SortHandle.astro';
+import Sortable from '../../components/Sortable.astro';
 import { ENTITIES, getEntity } from '../../lib/entities';
 import { cleanupImages, configError, db, formToRow, recordDeletion } from '../../lib/server';
 
@@ -59,7 +61,15 @@ if (!setupError && !isNew && !error) {
   row = data;
 }
 if (isNew && Object.keys(row).length === 0) {
-  row = { published: false, sort_order: 0, app_id: Astro.url.searchParams.get('app_id') };
+  const appId = Astro.url.searchParams.get('app_id');
+  row = { published: false, sort_order: 0, app_id: appId };
+  // New entries go to the end of the list.
+  if (!setupError && entity.key !== 'news') {
+    let last = db().from(entity.table).select('sort_order').order('sort_order', { ascending: false }).limit(1);
+    if (entity.key === 'features' && appId) last = last.eq('app_id', appId);
+    const { data } = await last;
+    row.sort_order = (data?.[0]?.sort_order ?? 0) + 1;
+  }
 }
 
 const { data: apps } = setupError ? { data: [] } : await db().from('apps').select('id, name').order('sort_order');
@@ -101,11 +111,14 @@ const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app
         {features.length === 0 ? (
           <p class="muted">Noch keine Funktionen.</p>
         ) : (
+          <>
+          {features.length > 1 && <Sortable />}
           <table>
-            <tbody>
+            <tbody data-sortable="features" data-app-id={id}>
               {features.map((f) => (
-                <tr>
-                  <td class="muted">{f.sort_order}</td>
+                <tr data-id={f.id}>
+                  <td class="sort-cell"><SortHandle title={f.title_de || 'Funktion'} /></td>
+                  <td class="muted" data-order-num>{f.sort_order}</td>
                   <td><a href={`/features/${f.id}`}>{f.title_de || '(ohne Titel)'}</a></td>
                   <td><span class:list={['pill', f.published ? 'pill-published' : 'pill-draft']}>{f.published ? 'Sichtbar' : 'Ausgeblendet'}</span></td>
                   <td>
@@ -115,6 +128,7 @@ const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app
               ))}
             </tbody>
           </table>
+          </>
         )}
       </section>
     )

@@ -1,0 +1,128 @@
+---
+// Makes table bodies with data-sortable="<entity>" reorderable (drag, arrow keys, up/down buttons)
+// and saves the order automatically. Include once per page, next to the table.
+---
+
+<p class="sort-status" data-sort-status role="status" aria-live="polite"></p>
+
+<script>
+  const status = document.querySelector<HTMLElement>('[data-sort-status]');
+
+  function setStatus(text: string, kind: 'ok' | 'error' | '' = '') {
+    if (!status) return;
+    status.textContent = text;
+    status.dataset.kind = kind;
+  }
+
+  document.querySelectorAll<HTMLTableSectionElement>('tbody[data-sortable]').forEach((body) => {
+    const rows = () => [...body.querySelectorAll<HTMLTableRowElement>(':scope > tr[data-id]')];
+    let saveTimer: number | undefined;
+    let savedOrder = rows().map((r) => r.dataset.id).join();
+
+    function changed() {
+      rows().forEach((row, i) => {
+        const num = row.querySelector('[data-order-num]');
+        if (num) num.textContent = String(i + 1);
+      });
+      window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(save, 450);
+    }
+
+    async function save() {
+      const ids = rows().map((r) => r.dataset.id!);
+      if (ids.join() === savedOrder) return;
+      setStatus('Speichere Reihenfolge …');
+      try {
+        const res = await fetch('/api/reorder', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ entity: body.dataset.sortable, appId: body.dataset.appId, ids }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error ?? `Fehler ${res.status}`);
+        savedOrder = ids.join();
+        setStatus('Reihenfolge gespeichert. Sie erscheint nach dem Veröffentlichen auf der Website.', 'ok');
+      } catch (e) {
+        setStatus(`Reihenfolge nicht gespeichert: ${(e as Error).message}`, 'error');
+      }
+    }
+
+    function move(row: HTMLTableRowElement, direction: 'up' | 'down') {
+      const sibling = direction === 'up' ? row.previousElementSibling : row.nextElementSibling;
+      if (!sibling) return;
+      if (direction === 'up') sibling.before(row);
+      else sibling.after(row);
+      changed();
+    }
+
+    // Up/down buttons
+    body.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-move]');
+      if (!button) return;
+      move(button.closest('tr')!, button.dataset.move as 'up' | 'down');
+      button.focus();
+    });
+
+    // Arrow keys on the handle
+    body.addEventListener('keydown', (e) => {
+      const handle = (e.target as HTMLElement).closest<HTMLElement>('[data-drag-handle]');
+      if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      e.preventDefault();
+      move(handle.closest('tr')!, e.key === 'ArrowUp' ? 'up' : 'down');
+      handle.focus();
+    });
+
+    // Drag with mouse, pen or finger (pointer events work on touch screens too)
+    body.addEventListener('pointerdown', (e) => {
+      const handle = (e.target as HTMLElement).closest<HTMLElement>('[data-drag-handle]');
+      if (!handle || e.button !== 0) return;
+      e.preventDefault();
+      const row = handle.closest('tr')!;
+      const startOrder = rows().map((r) => r.dataset.id).join();
+      // Listen on window: moving the row in the DOM would drop pointer capture on the handle.
+      const pointerId = e.pointerId;
+      row.classList.add('is-dragging');
+      document.body.classList.add('is-sorting');
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        const others = rows().filter((r) => r !== row);
+        const before = others.find((r) => {
+          const box = r.getBoundingClientRect();
+          return ev.clientY < box.top + box.height / 2;
+        });
+        if (before) {
+          if (row.nextElementSibling !== before) before.before(row);
+        } else if (body.lastElementChild !== row) {
+          body.append(row);
+        }
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        row.classList.remove('is-dragging');
+        document.body.classList.remove('is-sorting');
+        if (rows().map((r) => r.dataset.id).join() !== startOrder) changed();
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    });
+  });
+</script>
+
+<style is:global>
+  tbody[data-sortable] tr.is-dragging {
+    background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    position: relative;
+    z-index: 1;
+  }
+  body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: none; }
+  .sort-status { min-height: 18px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  .sort-status[data-kind='ok'] { color: var(--ok); }
+  .sort-status[data-kind='error'] { color: var(--danger); }
+  td.sort-cell { width: 1%; white-space: nowrap; padding-right: 0; }
+</style>
