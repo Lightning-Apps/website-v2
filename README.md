@@ -68,8 +68,8 @@ Auf dem Server läuft das Dashboard als Container mit Passwort-Login. Es bleibt 
 Auf der Ubuntu-VM (Docker + Compose vorhanden):
 
 ```bash
-git clone https://github.com/Lightning-Apps/lightning-apps-website.git
-cd lightning-apps-website
+git clone https://github.com/Lightning-Apps/website-v2.git
+cd website-v2
 cp dashboard/.env.example dashboard/.env.server
 ```
 
