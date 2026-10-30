@@ -92,7 +92,7 @@ Starten:
 docker compose -f compose.dashboard.yml up -d --build
 ```
 
-Danach `http://<IP-der-VM>:4322` öffnen. Anderer Port: `DASHBOARD_PORT=8090 docker compose -f compose.dashboard.yml up -d` (dann den Port auch in `DASHBOARD_ALLOWED_HOSTS` anpassen).
+Danach `http://<IP-der-VM>:4322` öffnen. Die Zeitzone für Datumsangaben ist `Europe/Berlin`; ändern mit `DASHBOARD_TZ=Europe/Vienna` (als Umgebungsvariable beim Start oder in einer `.env` neben `compose.dashboard.yml`). Anderer Port: `DASHBOARD_PORT=8090 docker compose -f compose.dashboard.yml up -d` (dann den Port auch in `DASHBOARD_ALLOWED_HOSTS` anpassen).
 
 Update nach neuen Commits:
 

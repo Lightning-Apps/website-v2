@@ -100,14 +100,22 @@ const STATE_FILE = join(DATA_DIR, '.deploy-state.json');
 
 interface DeployState {
   lastDeployAt: string | null;
+  /** Rows deleted since the last deploy that are still visible on the live site. */
+  pendingDeletions: number;
 }
 
 export async function readDeployState(): Promise<DeployState> {
   try {
-    return JSON.parse(await readFile(STATE_FILE, 'utf8')) as DeployState;
+    const state = JSON.parse(await readFile(STATE_FILE, 'utf8')) as Partial<DeployState>;
+    return { lastDeployAt: state.lastDeployAt ?? null, pendingDeletions: state.pendingDeletions ?? 0 };
   } catch {
-    return { lastDeployAt: null };
+    return { lastDeployAt: null, pendingDeletions: 0 };
   }
+}
+
+async function writeDeployState(state: DeployState): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
 export async function triggerDeploy(): Promise<void> {
@@ -115,23 +123,32 @@ export async function triggerDeploy(): Promise<void> {
   if (!hook) throw new Error('CF_DEPLOY_HOOK_URL fehlt in der .env.');
   const res = await fetch(hook, { method: 'POST' });
   if (!res.ok) throw new Error(`Cloudflare antwortete mit ${res.status} ${res.statusText}.`);
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(STATE_FILE, JSON.stringify({ lastDeployAt: new Date().toISOString() } satisfies DeployState, null, 2));
+  await writeDeployState({ lastDeployAt: new Date().toISOString(), pendingDeletions: 0 });
 }
 
-/** Rows changed since the last deploy, per table. */
-export async function pendingChanges(since: string | null): Promise<Record<string, number>> {
+/**
+ * Remembers a deletion until the next deploy, but only if the row is still on the live site:
+ * it was published and already existed at the last deploy.
+ */
+export async function recordDeletion(row: { published?: boolean; created_at?: string } | null): Promise<void> {
+  if (!row?.published) return;
+  const state = await readDeployState();
+  if (state.lastDeployAt && row.created_at && row.created_at > state.lastDeployAt) return;
+  await writeDeployState({ ...state, pendingDeletions: state.pendingDeletions + 1 });
+}
+
+/** Changes that are not on the live site yet: edited/created rows and deletions since the last deploy. */
+export async function pendingChanges(state: DeployState): Promise<{ changed: number; deleted: number }> {
   const tables = ['apps', 'app_features', 'projects', 'news'];
-  const result: Record<string, number> = {};
-  await Promise.all(
+  const counts = await Promise.all(
     tables.map(async (table) => {
       let query = db().from(table).select('id', { count: 'exact', head: true });
-      if (since) query = query.gt('updated_at', since);
+      if (state.lastDeployAt) query = query.gt('updated_at', state.lastDeployAt);
       const { count } = await query;
-      result[table] = count ?? 0;
+      return count ?? 0;
     }),
   );
-  return result;
+  return { changed: counts.reduce((a, b) => a + b, 0), deleted: state.pendingDeletions };
 }
 
 export function formatDateTime(iso: string): string {

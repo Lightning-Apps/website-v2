@@ -9,6 +9,9 @@ services:
     container_name: lightning-dashboard
     restart: unless-stopped
     env_file: dashboard/.env.server
+    environment:
+      # Time zone for dates in the dashboard, e.g. DASHBOARD_TZ=Europe/Vienna
+      TZ: ${DASHBOARD_TZ:-Europe/Berlin}
     ports:
       # Reachable in the home network / VPN only. Do not forward this port in your router.
       - "${DASHBOARD_PORT:-4322}:4322"

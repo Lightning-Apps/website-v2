@@ -10,13 +10,14 @@ const deployError = Astro.url.searchParams.get('error');
 const hookMissing = !CF_DEPLOY_HOOK_URL;
 const siteUrl = SITE_URL || 'http://localhost:4321';
 
-const { lastDeployAt } = await readDeployState();
-let pending: Record<string, number> = {};
+const deployState = await readDeployState();
+const { lastDeployAt } = deployState;
+let pending = { changed: 0, deleted: 0 };
 let counts: { label: string; href: string; total: number; drafts: number }[] = [];
 let latestNews: { id: string; title_de: string; published: boolean; published_at: string }[] = [];
 
 if (!setupError) {
-  pending = await pendingChanges(lastDeployAt);
+  pending = await pendingChanges(deployState);
   counts = await Promise.all(
     Object.values(ENTITIES)
       .filter((e) => !e.nested)
@@ -31,7 +32,12 @@ if (!setupError) {
   const { data } = await db().from('news').select('id, title_de, published, published_at').order('published_at', { ascending: false }).limit(5);
   latestNews = data ?? [];
 }
-const pendingTotal = Object.values(pending).reduce((a, b) => a + b, 0);
+const pendingTotal = pending.changed + pending.deleted;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const breakdown = [
+  pending.changed > 0 && plural(pending.changed, 'Eintrag geändert oder neu', 'Einträge geändert oder neu'),
+  pending.deleted > 0 && plural(pending.deleted, 'Eintrag gelöscht', 'Einträge gelöscht'),
+].filter(Boolean);
 ---
 
 <DashboardLayout title="Übersicht">
@@ -47,10 +53,19 @@ const pendingTotal = Object.values(pending).reduce((a, b) => a + b, 0);
 
   <div class="cards">
     <section class="panel publish">
-      <h2>Veröffentlichung</h2>
-      <p class="big">{pendingTotal > 0 ? `${pendingTotal} Änderung${pendingTotal === 1 ? '' : 'en'}` : 'Alles online'}</p>
-      <p class="muted">
-        {lastDeployAt ? `seit dem letzten Veröffentlichen am ${formatDateTime(lastDeployAt)}` : 'Noch nie aus dem Dashboard veröffentlicht.'}
+      <h2>Website</h2>
+      <p class:list={['big', { 'big-pending': pendingTotal > 0 }]}>
+        {pendingTotal > 0 ? plural(pendingTotal, 'offene Änderung', 'offene Änderungen') : 'Auf dem neuesten Stand'}
+      </p>
+      <p>
+        {
+          pendingTotal > 0
+            ? `${breakdown.join(', ')}. ${pendingTotal === 1 ? 'Diese Änderung erscheint' : 'Diese Änderungen erscheinen'} erst auf der Website, wenn du veröffentlichst.`
+            : 'Alles, was du im Dashboard geändert hast, ist veröffentlicht.'
+        }
+      </p>
+      <p class="muted small">
+        {lastDeployAt ? `Zuletzt veröffentlicht: ${formatDateTime(lastDeployAt)} Uhr` : 'Noch nie aus dem Dashboard veröffentlicht.'}
       </p>
       <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
         <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
@@ -99,5 +114,8 @@ const pendingTotal = Object.values(pending).reduce((a, b) => a + b, 0);
   .stat:hover { text-decoration: none; border-color: var(--accent); }
   .stat h2, .publish h2 { margin: 0; color: var(--muted); font-size: 13px; }
   .big { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .big-pending { color: var(--warn); }
+  .publish p { margin: 0; }
+  .small { font-size: 12px; }
   @media (max-width: 700px) { .publish { grid-column: auto; } }
 </style>
