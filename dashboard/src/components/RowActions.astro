@@ -1,0 +1,44 @@
+---
+// Pencil (edit) and trash (delete) buttons for a list row.
+// Delete posts to the row's edit page, which deletes and redirects back.
+interface Props {
+  href: string;
+  title: string;
+  confirm: string;
+}
+const { href, title, confirm } = Astro.props;
+---
+
+<div class="row-actions">
+  <a class="icon-btn" href={href} title="Bearbeiten" aria-label={`${title} bearbeiten`}>
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  </a>
+  <form method="post" action={href} data-confirm={confirm}>
+    <button class="icon-btn icon-btn-danger" type="submit" name="_action" value="delete" title="Löschen" aria-label={`${title} löschen`}>
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </button>
+  </form>
+</div>
+
+<style>
+  .row-actions { display: flex; justify-content: flex-end; gap: 4px; }
+  .row-actions form { margin: 0; }
+  .icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); text-decoration: none; }
+  .icon-btn-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+  .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+</style>

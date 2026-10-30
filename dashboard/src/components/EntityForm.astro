@@ -20,7 +20,6 @@ const platforms = (row.platforms ?? []) as Platform[];
 ---
 
 <form method="post" enctype="multipart/form-data" class="entity-form stack">
-  <input type="hidden" name="_action" value="save" />
 
   {
     hasI18n && (
@@ -129,7 +128,8 @@ const platforms = (row.platforms ?? []) as Platform[];
   </div>
 
   <div class="form-actions">
-    <button class="btn btn-primary" type="submit">{isNew ? `${entity.singular} anlegen` : 'Speichern'}</button>
+    <!-- The clicked button decides the action; Enter in a field uses this first button. -->
+    <button class="btn btn-primary" type="submit" name="_action" value="save">{isNew ? `${entity.singular} anlegen` : 'Speichern'}</button>
     {
       !isNew && (
         <button class="btn btn-danger" type="submit" name="_action" value="delete" formnovalidate data-confirm={`${entity.singular} wirklich endgültig löschen?`}>

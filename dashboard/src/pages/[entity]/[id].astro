@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import EntityForm from '../../components/EntityForm.astro';
+import RowActions from '../../components/RowActions.astro';
 import { ENTITIES, getEntity } from '../../lib/entities';
 import { cleanupImages, configError, db, formToRow } from '../../lib/server';
 
@@ -106,6 +107,9 @@ const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app
                   <td class="muted">{f.sort_order}</td>
                   <td><a href={`/features/${f.id}`}>{f.title_de || '(ohne Titel)'}</a></td>
                   <td><span class:list={['pill', f.published ? 'pill-published' : 'pill-draft']}>{f.published ? 'Sichtbar' : 'Ausgeblendet'}</span></td>
+                  <td>
+                    <RowActions href={`/features/${f.id}`} title={f.title_de || 'Funktion'} confirm={`Funktion „${f.title_de || 'ohne Titel'}“ endgültig löschen?`} />
+                  </td>
                 </tr>
               ))}
             </tbody>
