@@ -50,7 +50,9 @@ const platforms = (row.platforms ?? []) as Platform[];
           const wrapClass = ['field', `field-${field.type}`, lang ? `lang-field lang-${lang}` : '', lang && lang !== 'de' ? 'is-hidden' : ''];
           return (
             <div class:list={wrapClass}>
-              {field.type === 'checkbox' ? (
+              {field.type === 'section' ? (
+                <h3 class="field-section">{field.label}</h3>
+              ) : field.type === 'checkbox' ? (
                 <label class="check">
                   <input type="checkbox" id={id} name={column} checked={Boolean(value)} />
                   <span>{field.label}</span>
@@ -62,6 +64,7 @@ const platforms = (row.platforms ?? []) as Platform[];
               {field.type === 'text' && <input id={id} name={column} type="text" value={value ?? ''} required={field.required && lang !== 'en'} pattern={field.name === 'slug' ? '[a-z0-9-]+' : undefined} />}
               {field.type === 'url' && <input id={id} name={column} type="url" value={value ?? ''} placeholder="https://" />}
               {field.type === 'number' && <input id={id} name={column} type="number" value={value ?? 0} step="1" />}
+              {field.type === 'year' && <input id={id} name={column} type="number" value={value ?? ''} min="1990" max="2100" step="1" placeholder="z. B. 2021" />}
               {field.type === 'date' && <input id={id} name={column} type="date" value={value ?? new Date().toISOString().slice(0, 10)} required={field.required} />}
               {field.type === 'color' && (
                 <div class="color-row">
@@ -202,6 +205,7 @@ const platforms = (row.platforms ?? []) as Platform[];
   .fields { display: grid; gap: 20px; }
   .field { display: grid; gap: 6px; }
   .field.is-hidden { display: none; }
+  .field-section { margin: 12px 0 0; padding-top: 20px; border-top: 1px solid var(--border); font-size: 17px; }
   .field-label { font-weight: 600; display: flex; gap: 8px; align-items: center; }
   .lang-tag { font-size: 11px; font-weight: 600; color: var(--muted); }
   .req { color: var(--danger); }

@@ -1,6 +1,6 @@
 ---
 import Logo from './Logo.astro';
-import { getApps } from '../lib/content';
+import { getApps, hasArchive } from '../lib/content';
 import { LOCALES, LOCALE_NAMES, localizePath, switchLocalePath, useTranslations, type Locale } from '../i18n/ui';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
 const { lang } = Astro.props;
 const t = useTranslations(lang);
 const apps = await getApps();
+const showArchive = await hasArchive();
 const year = new Date().getFullYear();
 ---
 
@@ -19,6 +20,7 @@ const year = new Date().getFullYear();
         <h2 class="footer-heading">{t('nav.apps')}</h2>
         <ul>
           {apps.map((app) => <li><a href={localizePath(lang, `apps/${app.slug}`)}>{app.name}</a></li>)}
+          {showArchive && <li><a href={localizePath(lang, 'archive')}>{t('nav.archive')}</a></li>}
         </ul>
       </div>
       <div>

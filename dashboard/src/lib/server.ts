@@ -51,6 +51,13 @@ export async function formToRow(entity: Entity, form: FormData): Promise<Record<
         case 'checkbox':
           row[column] = form.get(column) === 'on';
           break;
+        case 'section':
+          break;
+        case 'year': {
+          const year = Number.parseInt(text, 10);
+          row[column] = Number.isFinite(year) ? year : null;
+          break;
+        }
         case 'number':
           row[column] = Number.parseInt(text, 10) || 0;
           break;

@@ -2,12 +2,13 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AppIcon from '../../../components/AppIcon.astro';
 import NewsCard from '../../../components/NewsCard.astro';
-import { getApps, getFeatures, getNews, media, renderMarkdown, type App } from '../../../lib/content';
-import { LOCALES, useTranslations, type Locale } from '../../../i18n/ui';
-import { pick } from '@lightning/shared';
+import { getAllApps, getFeatures, getNews, media, renderMarkdown, type App } from '../../../lib/content';
+import { LOCALES, localizePath, useTranslations, type Locale } from '../../../i18n/ui';
+import { activePeriod, pick } from '@lightning/shared';
 
 export async function getStaticPaths() {
-  const apps = await getApps();
+  // Archived apps keep their page (old links keep working) and show a notice.
+  const apps = await getAllApps();
   return LOCALES.flatMap((lang) => apps.map((app) => ({ params: { lang, slug: app.slug }, props: { app } })));
 }
 
@@ -18,7 +19,12 @@ const [features, news] = await Promise.all([getFeatures(app.uuid), getNews()]);
 const related = news.filter((n) => n.related_app_id === app.uuid).slice(0, 3);
 const hero = media(app.hero_path);
 const body = pick(app, 'body', lang);
-const statusLabel = pick(app, 'release_label', lang) || t(`status.${app.status}`);
+const period = activePeriod(app, lang);
+const archiveNote = pick(app, 'archive_note', lang);
+// Archived apps show "Archiviert · 2021–2024" instead of their release status.
+const statusLabel = app.archived
+  ? [t('archive.badge'), period].filter(Boolean).join(' · ')
+  : pick(app, 'release_label', lang) || t(`status.${app.status}`);
 ---
 
 <BaseLayout lang={lang} title={app.name} description={pick(app, 'description', lang)} image={hero}>
@@ -39,12 +45,27 @@ const statusLabel = pick(app, 'release_label', lang) || t(`status.${app.status}`
     </div>
   </div>
 
+  {
+    app.archived && (
+      <aside class="archive-banner">
+        <div class="container-wide archive-banner-inner">
+          <p>
+            <strong>{t('archive.banner')}</strong>
+            {period && <span> {t('archive.active')} {period}.</span>}
+            {archiveNote && <span> {archiveNote}</span>}
+          </p>
+          <a class="chevron-link" href={localizePath(lang, 'archive')}>{t('nav.archive')}</a>
+        </div>
+      </aside>
+    )
+  }
+
   <section class="app-hero" id="top" style={`--accent:${app.accent_color}`}>
     <div class="container hero-text">
       <AppIcon app={app} size={120} />
       <h1 class="headline-xl">{app.name}</h1>
       <p class="hero-tagline">{pick(app, 'tagline', lang)}</p>
-      <span class:list={['badge', `badge-${app.status}`]}>{statusLabel}</span>
+      <span class:list={['badge', !app.archived && `badge-${app.status}`]}>{statusLabel}</span>
       {
         app.app_store_url && (
           <a class="button" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>
@@ -139,6 +160,20 @@ const statusLabel = pick(app, 'release_label', lang) || t(`status.${app.status}`
   .subnav .button { background: var(--accent); }
   .is-disabled { background: var(--text-tertiary) !important; cursor: default; }
   @media (max-width: 600px) { .subnav-link { display: none; } }
+
+  .archive-banner { background: var(--bg-alt); border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  .archive-banner-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    padding-block: 14px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .archive-banner strong { color: var(--text); font-weight: 600; }
+  .archive-banner a { white-space: nowrap; }
 
   .app-hero { padding-top: clamp(56px, 9vw, 96px); text-align: center; overflow: hidden; }
   .hero-text { display: grid; justify-items: center; gap: 14px; }

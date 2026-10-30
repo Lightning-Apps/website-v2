@@ -9,8 +9,18 @@ export type News = CollectionEntry<'news'>['data'];
 
 const bySort = <T extends { sort_order: number }>(a: T, b: T) => a.sort_order - b.sort_order;
 
-export async function getApps(): Promise<App[]> {
+/** All published apps, archived ones included (detail pages are built for both). */
+export async function getAllApps(): Promise<App[]> {
   return (await getCollection('apps')).map((e) => e.data).sort(bySort);
+}
+
+/** Apps that are still worked on: navbar, home page, apps overview, footer. */
+export async function getApps(): Promise<App[]> {
+  return (await getAllApps()).filter((a) => !a.archived);
+}
+
+export async function getArchivedApps(): Promise<App[]> {
+  return (await getAllApps()).filter((a) => a.archived);
 }
 
 export async function getFeatures(appUuid: string): Promise<Feature[]> {
@@ -20,8 +30,20 @@ export async function getFeatures(appUuid: string): Promise<Feature[]> {
     .sort(bySort);
 }
 
-export async function getProjects(): Promise<Project[]> {
+export async function getAllProjects(): Promise<Project[]> {
   return (await getCollection('projects')).map((e) => e.data).sort(bySort);
+}
+
+export async function getProjects(): Promise<Project[]> {
+  return (await getAllProjects()).filter((p) => !p.archived);
+}
+
+export async function getArchivedProjects(): Promise<Project[]> {
+  return (await getAllProjects()).filter((p) => p.archived);
+}
+
+export async function hasArchive(): Promise<boolean> {
+  return (await getArchivedApps()).length > 0 || (await getArchivedProjects()).length > 0;
 }
 
 /** Newest first. */

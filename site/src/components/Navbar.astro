@@ -1,7 +1,7 @@
 ---
 import Logo from './Logo.astro';
 import AppIcon from './AppIcon.astro';
-import { getApps } from '../lib/content';
+import { getApps, hasArchive } from '../lib/content';
 import { LOCALES, localizePath, switchLocalePath, useTranslations, type Locale } from '../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -11,6 +11,7 @@ interface Props {
 const { lang } = Astro.props;
 const t = useTranslations(lang);
 const apps = await getApps();
+const showArchive = await hasArchive();
 const path = Astro.url.pathname;
 const isActive = (section: string) => path.startsWith(localizePath(lang, section));
 // Projects have no page of their own yet: jump to the section on the home page.
@@ -41,7 +42,10 @@ const projectsHref = `${localizePath(lang)}#projects`;
           <div class="mega-inner container-wide">
             <div class="mega-head">
               <p class="mega-label">{t('nav.apps')}</p>
-              <a class="mega-all chevron-link" href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a>
+              <span class="mega-links">
+                {showArchive && <a class="chevron-link" href={localizePath(lang, 'archive')}>{t('nav.archive')}</a>}
+                <a class="chevron-link" href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a>
+              </span>
             </div>
             <ul class="mega-apps">
                 {
@@ -111,6 +115,7 @@ const projectsHref = `${localizePath(lang)}#projects`;
             ))
           }
           <li><a href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a></li>
+          {showArchive && <li><a href={localizePath(lang, 'archive')}>{t('nav.archive')}</a></li>}
         </ul>
       </details>
       <a class="mobile-link" href={projectsHref}>{t('nav.projects')}</a>
@@ -292,7 +297,7 @@ const projectsHref = `${localizePath(lang)}#projects`;
     margin-bottom: 12px;
   }
   .mega-label { color: var(--text-tertiary); font-size: 12px; }
-  .mega-all { font-size: 14px; font-weight: 600; }
+  .mega-links { display: flex; gap: 24px; font-size: 14px; font-weight: 600; }
   /* The list is pulled out by the item padding so icons line up with the label,
      while hover backgrounds stay inside their own grid cell. */
   .mega-apps {

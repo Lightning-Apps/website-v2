@@ -13,6 +13,9 @@ export type FieldType =
   | 'select'
   | 'checkbox'
   | 'number'
+  | 'year'
+  /** A sub-heading in the form; stores nothing. */
+  | 'section'
   | 'date'
   | 'url'
   | 'color'
@@ -58,6 +61,15 @@ export const PLATFORM_STATE_LABELS: Record<Platform['state'], string> = {
 
 const published: Field = { name: 'published', label: 'Veröffentlicht', type: 'checkbox', help: 'Nur veröffentlichte Einträge erscheinen auf der Website.' };
 const sortOrder: Field = { name: 'sort_order', label: 'Reihenfolge', type: 'number', help: 'Kleinere Zahl = weiter vorne.' };
+// Apps and projects that are no longer worked on move from the main lists to the archive.
+const archiveFields: Field[] = [
+  { name: 'archive', label: 'Archiv', type: 'section', help: 'Für Einträge, an denen nicht mehr gearbeitet wird. Sie verschwinden dann aus den normalen Listen und erscheinen im Archiv.' },
+  { name: 'archived', label: 'Archiviert', type: 'checkbox' },
+  { name: 'active_from', label: 'Aktiv von (Jahr)', type: 'year' },
+  { name: 'active_until', label: 'Aktiv bis (Jahr)', type: 'year' },
+  { name: 'archive_note', label: 'Abschlussnotiz', type: 'textarea', i18n: true, help: 'Ein Satz fürs Archiv, z. B. warum es eingestellt wurde oder was daraus wurde.' },
+];
+
 const slug: Field = { name: 'slug', label: 'Slug (URL)', type: 'text', required: true, help: 'Nur Kleinbuchstaben, Zahlen und Bindestriche, z. B. „mein-beitrag“.' };
 
 export const ENTITIES: Record<EntityKey, Entity> = {
@@ -113,6 +125,7 @@ export const ENTITIES: Record<EntityKey, Entity> = {
       { name: 'featured', label: 'Auf der Startseite hervorheben', type: 'checkbox' },
       sortOrder,
       published,
+      ...archiveFields,
     ],
   },
   features: {
@@ -148,10 +161,11 @@ export const ENTITIES: Record<EntityKey, Entity> = {
         name: 'status',
         label: 'Status',
         type: 'select',
-        options: opts(PROJECT_STATUSES, { active: 'Aktiv', coming_soon: 'Demnächst', archived: 'Archiviert' }),
+        options: opts(PROJECT_STATUSES, { active: 'Aktiv', coming_soon: 'Demnächst' }),
       },
       sortOrder,
       published,
+      ...archiveFields,
     ],
   },
 };

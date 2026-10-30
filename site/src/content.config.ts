@@ -24,6 +24,14 @@ async function fetchTable(table: string, idField: 'slug' | 'id' = 'slug') {
   return (data ?? []).map((row) => ({ ...row, uuid: row.id, id: String(row[idField]) }));
 }
 
+const archive = {
+  archived: z.boolean(),
+  active_from: z.number().nullable(),
+  active_until: z.number().nullable(),
+  archive_note_de: z.string(),
+  archive_note_en: z.string(),
+};
+
 const base = {
   id: z.string(),
   uuid: z.string(),
@@ -52,6 +60,7 @@ const apps = defineCollection({
     app_store_url: z.string().nullable(),
     platforms: z.array(z.object({ name: z.string(), state: z.enum(PLATFORM_STATES) })),
     featured: z.boolean(),
+    ...archive,
   }),
 });
 
@@ -78,6 +87,7 @@ const projects = defineCollection({
     description_en: z.string(),
     url: z.string().nullable(),
     status: z.enum(PROJECT_STATUSES),
+    ...archive,
   }),
 });
 

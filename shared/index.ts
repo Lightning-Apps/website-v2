@@ -10,7 +10,7 @@ export type AppStatus = (typeof APP_STATUSES)[number];
 export const PLATFORM_STATES = ['available', 'in_development', 'planned'] as const;
 export type PlatformState = (typeof PLATFORM_STATES)[number];
 
-export const PROJECT_STATUSES = ['active', 'coming_soon', 'archived'] as const;
+export const PROJECT_STATUSES = ['active', 'coming_soon'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export const NEWS_CATEGORIES = ['release', 'update', 'studio'] as const;
@@ -26,12 +26,21 @@ interface Row {
   updated_at: string;
 }
 
+/** Apps and projects that are no longer worked on; shown in the archive instead of the main lists. */
+interface Archivable {
+  archived: boolean;
+  active_from: number | null;
+  active_until: number | null;
+  archive_note_de: string;
+  archive_note_en: string;
+}
+
 export interface Platform {
   name: string;
   state: PlatformState;
 }
 
-export interface AppRow extends Row {
+export interface AppRow extends Row, Archivable {
   slug: string;
   name: string;
   tagline_de: string;
@@ -60,7 +69,7 @@ export interface AppFeatureRow extends Row {
   image_path: string | null;
 }
 
-export interface ProjectRow extends Row {
+export interface ProjectRow extends Row, Archivable {
   slug: string;
   name: string;
   description_de: string;
@@ -88,6 +97,15 @@ export function mediaUrl(supabaseUrl: string, path: string | null | undefined): 
   if (!path) return null;
   if (/^https?:\/\//.test(path)) return path;
   return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${MEDIA_BUCKET}/${path}`;
+}
+
+/** "2021–2024", "seit 2021" / "since 2021", or "" when no years are set. */
+export function activePeriod(row: Pick<Archivable, 'active_from' | 'active_until'>, lang: Locale): string {
+  const { active_from: from, active_until: until } = row;
+  if (from && until) return from === until ? String(from) : `${from}–${until}`;
+  if (from) return `${lang === 'de' ? 'seit' : 'since'} ${from}`;
+  if (until) return `${lang === 'de' ? 'bis' : 'until'} ${until}`;
+  return '';
 }
 
 /** Picks the localized variant of a `<field>_de` / `<field>_en` column, falling back to German. */

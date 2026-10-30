@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AppIcon from '../../../components/AppIcon.astro';
-import { getApps, getNews, media, renderMarkdown, type News } from '../../../lib/content';
+import { getAllApps, getNews, media, renderMarkdown, type News } from '../../../lib/content';
 import { LOCALES, formatDate, localizePath, useTranslations, type Locale } from '../../../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -14,7 +14,7 @@ const { item } = Astro.props as { item: News };
 const lang = Astro.params.lang as Locale;
 const t = useTranslations(lang);
 const cover = media(item.cover_path);
-const relatedApp = item.related_app_id ? (await getApps()).find((a) => a.uuid === item.related_app_id) : undefined;
+const relatedApp = item.related_app_id ? (await getAllApps()).find((a) => a.uuid === item.related_app_id) : undefined;
 ---
 
 <BaseLayout lang={lang} title={pick(item, 'title', lang)} description={pick(item, 'summary', lang)} image={cover}>

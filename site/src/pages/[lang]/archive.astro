@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AppIcon from '../../components/AppIcon.astro';
+import { getArchivedApps, getArchivedProjects } from '../../lib/content';
+import { localeStaticPaths, localizePath, useTranslations, type Locale } from '../../i18n/ui';
+import { activePeriod, pick } from '@lightning/shared';
+
+export const getStaticPaths = localeStaticPaths;
+
+const lang = Astro.params.lang as Locale;
+const t = useTranslations(lang);
+const [apps, projects] = await Promise.all([getArchivedApps(), getArchivedProjects()]);
+---
+
+<BaseLayout lang={lang} title={t('archive.title')} description={t('archive.sub')}>
+  <section class="section">
+    <div class="container-wide">
+      <header class="section-head">
+        <h1 class="headline-xl">{t('archive.title')}</h1>
+        <p class="lead">{t('archive.sub')}</p>
+      </header>
+
+      {apps.length === 0 && projects.length === 0 && <p class="lead center">—</p>}
+
+      {
+        apps.length > 0 && (
+          <section class="archive-group" aria-labelledby="archive-apps">
+            <h2 id="archive-apps" class="headline-m">{t('archive.apps')}</h2>
+            <div class="grid grid-3">
+              {apps.map((app) => {
+                const period = activePeriod(app, lang);
+                const note = pick(app, 'archive_note', lang);
+                return (
+                  <a class="card archive-card reveal" href={localizePath(lang, `apps/${app.slug}`)}>
+                    <div class="archive-card-head">
+                      <span class="archive-icon"><AppIcon app={app} size={56} /></span>
+                      <div>
+                        <h3 class="headline-s">{app.name}</h3>
+                        {period && <p class="archive-period">{period}</p>}
+                      </div>
+                    </div>
+                    <p class="muted">{pick(app, 'tagline', lang)}</p>
+                    {note && <p class="archive-note">{note}</p>}
+                    <span class="chevron-link archive-link">{t('cta.learnMore')}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        projects.length > 0 && (
+          <section class="archive-group" aria-labelledby="archive-projects">
+            <h2 id="archive-projects" class="headline-m">{t('archive.projects')}</h2>
+            <div class="grid grid-3">
+              {projects.map((project) => {
+                const period = activePeriod(project, lang);
+                const note = pick(project, 'archive_note', lang);
+                const Tag = project.url ? 'a' : 'div';
+                return (
+                  <Tag class="card archive-card reveal" href={project.url ?? undefined} rel={project.url ? 'noopener' : undefined}>
+                    <div>
+                      <h3 class="headline-s">{project.name}</h3>
+                      {period && <p class="archive-period">{period}</p>}
+                    </div>
+                    <p class="muted">{pick(project, 'description', lang)}</p>
+                    {note && <p class="archive-note">{note}</p>}
+                    {project.url && <span class="chevron-link archive-link">{t('cta.visit')}</span>}
+                  </Tag>
+                );
+              })}
+            </div>
+          </section>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .archive-group + .archive-group { margin-top: clamp(56px, 8vw, 88px); }
+  .archive-group h2 { margin-bottom: 24px; }
+  .archive-card { display: grid; align-content: start; gap: 12px; padding: 28px; color: inherit; }
+  .archive-card-head { display: flex; align-items: center; gap: 16px; }
+  .archive-period { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-top: 4px; }
+  .archive-note {
+    font-size: 15px;
+    line-height: 1.45;
+    padding-left: 12px;
+    border-left: 2px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .archive-link { color: var(--link); margin-top: 4px; }
+  /* Archived icons are muted until you point at them. */
+  .archive-icon { display: inline-flex; filter: grayscale(0.7); opacity: 0.85; transition: filter 0.3s var(--ease), opacity 0.3s var(--ease); }
+  .archive-card:hover .archive-icon, .archive-card:focus-visible .archive-icon { filter: none; opacity: 1; }
+</style>

@@ -68,6 +68,7 @@ const thumbField = entity.key === 'apps' ? 'icon_path' : entity.key === 'news' ?
                   <td>
                     <span class:list={['pill', row.published ? 'pill-published' : 'pill-draft']}>{row.published ? 'Veröffentlicht' : 'Entwurf'}</span>
                     {row.featured && <span class="pill pill-published">Startseite</span>}
+                    {row.archived && <span class="pill pill-draft">Archiviert</span>}
                   </td>
                   <td class="muted">{formatDateTime(row.updated_at)}</td>
                   <td>
