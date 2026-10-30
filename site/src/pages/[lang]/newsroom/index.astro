@@ -1,0 +1,89 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import NewsCard from '../../../components/NewsCard.astro';
+import { getNews } from '../../../lib/content';
+import { localeStaticPaths, useTranslations, type Locale } from '../../../i18n/ui';
+import { NEWS_CATEGORIES } from '@lightning/shared';
+
+export const getStaticPaths = localeStaticPaths;
+
+const lang = Astro.params.lang as Locale;
+const t = useTranslations(lang);
+const news = await getNews();
+const [latest, ...rest] = news;
+const usedCategories = NEWS_CATEGORIES.filter((c) => news.some((n) => n.category === c));
+---
+
+<BaseLayout lang={lang} title={t('newsroom.title')} description={t('newsroom.sub')}>
+  <section class="section newsroom">
+    <div class="container-wide">
+      <header class="newsroom-head">
+        <h1 class="headline-xl">{t('newsroom.title')}</h1>
+        <p class="lead">{t('newsroom.sub')}</p>
+      </header>
+
+      {!latest && <p class="lead center">{t('newsroom.empty')}</p>}
+
+      {
+        latest && (
+          <>
+            <p class="eyebrow">{t('newsroom.latest')}</p>
+            <NewsCard item={latest} lang={lang} large />
+          </>
+        )
+      }
+
+      {
+        rest.length > 0 && (
+          <>
+            {usedCategories.length > 1 && (
+              <div class="filters" role="group" aria-label="Filter" data-filters>
+                <button type="button" aria-pressed="true" data-filter="all">{t('category.all')}</button>
+                {usedCategories.map((c) => (
+                  <button type="button" aria-pressed="false" data-filter={c}>{t(`category.${c}`)}</button>
+                ))}
+              </div>
+            )}
+            <div class="grid grid-3 news-grid" data-news-grid>
+              {rest.map((item) => <NewsCard item={item} lang={lang} />)}
+            </div>
+          </>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  const filters = document.querySelector<HTMLElement>('[data-filters]');
+  const cards = document.querySelectorAll<HTMLElement>('[data-news-grid] [data-category]');
+  filters?.addEventListener('click', (e) => {
+    const button = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
+    if (!button) return;
+    const value = button.dataset.filter;
+    filters.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+    cards.forEach((card) => {
+      card.hidden = value !== 'all' && card.dataset.category !== value;
+    });
+  });
+</script>
+
+<style>
+  .newsroom-head { display: grid; gap: 12px; margin-bottom: clamp(40px, 6vw, 64px); }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 56px 0 24px; }
+  .filters button {
+    min-height: 36px;
+    padding: 6px 16px;
+    border-radius: 980px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .filters button[aria-pressed='true'] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .news-grid { margin-top: 24px; }
+  .filters + .news-grid { margin-top: 0; }
+  .news-grid :global([hidden]) { display: none; }
+</style>

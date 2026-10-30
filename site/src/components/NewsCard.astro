@@ -1,0 +1,51 @@
+---
+import { media, type News } from '../lib/content';
+import { formatDate, localizePath, useTranslations, type Locale } from '../i18n/ui';
+import { pick } from '@lightning/shared';
+
+interface Props {
+  item: News;
+  lang: Locale;
+  large?: boolean;
+}
+const { item, lang, large = false } = Astro.props;
+const t = useTranslations(lang);
+const cover = media(item.cover_path);
+---
+
+<a class:list={['card', 'news-card', 'reveal', { large }]} href={localizePath(lang, `newsroom/${item.slug}`)} data-category={item.category}>
+  <div class:list={['news-cover', `cat-${item.category}`]}>
+    {cover ? <img src={cover} alt="" loading="lazy" /> : <span class="news-cover-label">{t(`category.${item.category}`)}</span>}
+  </div>
+  <div class="news-body">
+    <p class="news-meta">{t(`category.${item.category}`).toUpperCase()}</p>
+    <h3 class:list={[large ? 'headline-m' : 'news-title']}>{pick(item, 'title', lang)}</h3>
+    {large && <p class="lead news-summary">{pick(item, 'summary', lang)}</p>}
+    <time class="news-date" datetime={item.published_at}>{formatDate(item.published_at, lang)}</time>
+  </div>
+</a>
+
+<style>
+  .news-card { display: flex; flex-direction: column; color: inherit; }
+  .news-cover { aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; }
+  .news-cover img { width: 100%; height: 100%; object-fit: cover; }
+  .cat-release { background: linear-gradient(135deg, #0071e3, #5e5ce6); }
+  .cat-update { background: linear-gradient(135deg, #30d158, #0a84ff); }
+  .cat-studio { background: linear-gradient(135deg, #ff9f0a, #ff375f); }
+  .news-cover-label { color: rgba(255, 255, 255, 0.92); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .news-body { display: grid; gap: 8px; padding: 24px 28px 28px; flex: 1; align-content: start; }
+  .news-meta { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.02em; }
+  .news-title { font-size: 21px; line-height: 1.24; }
+  .news-date { font-size: 14px; color: var(--text-secondary); margin-top: auto; padding-top: 8px; }
+  .news-summary { font-size: 19px; }
+
+  .large { display: grid; grid-template-columns: 1.4fr 1fr; }
+  .large .news-cover { aspect-ratio: auto; min-height: 340px; }
+  .large .news-cover-label { font-size: 48px; }
+  .large .news-body { padding: 40px; align-content: center; gap: 14px; }
+  @media (max-width: 833px) {
+    .large { grid-template-columns: 1fr; }
+    .large .news-cover { min-height: 0; aspect-ratio: 16 / 9; }
+    .large .news-body { padding: 28px; }
+  }
+</style>

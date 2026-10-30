@@ -1,0 +1,19 @@
+{
+  "name": "dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.9",
+    "@lightning/shared": "*",
+    "@supabase/supabase-js": "^2.118.0",
+    "astro": "^7.4.4",
+    "marked": "^18.1.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "typescript": "^6.0.3"
+  }
+}

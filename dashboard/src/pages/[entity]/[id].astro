@@ -1,0 +1,123 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import EntityForm from '../../components/EntityForm.astro';
+import { ENTITIES, getEntity } from '../../lib/entities';
+import { cleanupImages, configError, db, formToRow } from '../../lib/server';
+
+const entity = getEntity(Astro.params.entity);
+if (!entity) return new Response('Not found', { status: 404 });
+
+const setupError = configError();
+const id = Astro.params.id!;
+const isNew = id === 'new';
+let row: Record<string, any> = {};
+let error: string | null = setupError;
+let saved = Astro.url.searchParams.get('saved') === '1';
+// Where a nested entity (features) returns to after saving/deleting.
+const backTo = entity.key === 'features' ? (appId: string) => `/apps/${appId}` : () => `/${entity.key}/`;
+
+if (!setupError && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action');
+  try {
+    if (action === 'delete' && !isNew) {
+      const { data: existing } = await db().from(entity.table).select('*').eq('id', id).single();
+      // Features are removed with their app (on delete cascade), so collect their images first.
+      const { data: childFeatures } =
+        entity.key === 'apps' ? await db().from(ENTITIES.features.table).select('*').eq('app_id', id) : { data: null };
+      const { error: delError } = await db().from(entity.table).delete().eq('id', id);
+      if (delError) throw new Error(delError.message);
+      await cleanupImages(entity, existing, null);
+      for (const feature of childFeatures ?? []) await cleanupImages(ENTITIES.features, feature, null);
+      const name = existing?.[entity.titleField] ?? entity.singular;
+      const target = entity.key === 'features' ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
+      return Astro.redirect(target, 303);
+    }
+    const values = await formToRow(entity, form);
+    const { data: before } = isNew ? { data: null } : await db().from(entity.table).select('*').eq('id', id).single();
+    const query = isNew
+      ? db().from(entity.table).insert(values).select().single()
+      : db().from(entity.table).update(values).eq('id', id).select().single();
+    const { data, error: saveError } = await query;
+    if (saveError) throw new Error(saveError.code === '23505' ? 'Dieser Slug ist schon vergeben.' : saveError.message);
+    await cleanupImages(entity, before, values);
+    return Astro.redirect(`/${entity.key}/${data.id}?saved=1`, 303);
+  } catch (e) {
+    error = (e as Error).message;
+    // Re-show what was typed (images and platforms are re-read from the database below).
+    row = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string'));
+    for (const f of entity.fields) if (f.type === 'checkbox') row[f.name] = form.get(f.name) === 'on';
+    saved = false;
+  }
+}
+
+if (!setupError && !isNew && !error) {
+  const { data, error: loadError } = await db().from(entity.table).select('*').eq('id', id).maybeSingle();
+  if (!data) return new Response(loadError?.message ?? 'Not found', { status: 404 });
+  row = data;
+}
+if (isNew && Object.keys(row).length === 0) {
+  row = { published: false, sort_order: 0, app_id: Astro.url.searchParams.get('app_id') };
+}
+
+const { data: apps } = setupError ? { data: [] } : await db().from('apps').select('id, name').order('sort_order');
+const { data: features } =
+  entity.key === 'apps' && !isNew && !setupError
+    ? await db().from(ENTITIES.features.table).select('id, title_de, published, sort_order').eq('app_id', id).order('sort_order')
+    : { data: null };
+
+const title = isNew ? `${entity.singular} anlegen` : String(row[entity.titleField] || entity.singular);
+const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app_id) : undefined;
+---
+
+<DashboardLayout title={title}>
+  <p class="crumbs">
+    {
+      parentApp ? (
+        <a href={`/apps/${parentApp.id}`}>← {parentApp.name}</a>
+      ) : (
+        <a href={`/${entity.key}/`}>← {entity.label}</a>
+      )
+    }
+  </p>
+  <div class="page-head">
+    <h1>{title}</h1>
+  </div>
+
+  {saved && <p class="notice notice-ok">Gespeichert. Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
+  {error && <p class="notice notice-error">{error}</p>}
+
+  {!setupError && <EntityForm entity={entity} row={row} apps={apps ?? []} isNew={isNew} />}
+
+  {
+    features && (
+      <section class="panel features">
+        <div class="page-head">
+          <h2>Funktionen &amp; Screenshots</h2>
+          <a class="btn" href={`/features/new?app_id=${id}`}>+ Funktion hinzufügen</a>
+        </div>
+        {features.length === 0 ? (
+          <p class="muted">Noch keine Funktionen.</p>
+        ) : (
+          <table>
+            <tbody>
+              {features.map((f) => (
+                <tr>
+                  <td class="muted">{f.sort_order}</td>
+                  <td><a href={`/features/${f.id}`}>{f.title_de || '(ohne Titel)'}</a></td>
+                  <td><span class:list={['pill', f.published ? 'pill-published' : 'pill-draft']}>{f.published ? 'Sichtbar' : 'Ausgeblendet'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    )
+  }
+</DashboardLayout>
+
+<style>
+  .crumbs { margin: 0 0 8px; }
+  .features { margin-top: 32px; }
+  .features .page-head { margin-bottom: 8px; }
+</style>

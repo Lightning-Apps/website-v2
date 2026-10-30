@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "site",
+      "runtimeExecutable": "/opt/homebrew/opt/node@26/bin/node",
+      "runtimeArgs": ["node_modules/astro/bin/astro.mjs", "dev", "--root", "site", "--port", "4321"],
+      "port": 4321
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "/opt/homebrew/opt/node@26/bin/node",
+      "runtimeArgs": ["node_modules/astro/bin/astro.mjs", "dev", "--root", "dashboard", "--host", "127.0.0.1", "--port", "4322"],
+      "port": 4322
+    }
+  ]
+}

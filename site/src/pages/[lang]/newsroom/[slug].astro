@@ -1,0 +1,68 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AppIcon from '../../../components/AppIcon.astro';
+import { getApps, getNews, media, renderMarkdown, type News } from '../../../lib/content';
+import { LOCALES, formatDate, localizePath, useTranslations, type Locale } from '../../../i18n/ui';
+import { pick } from '@lightning/shared';
+
+export async function getStaticPaths() {
+  const news = await getNews();
+  return LOCALES.flatMap((lang) => news.map((item) => ({ params: { lang, slug: item.slug }, props: { item } })));
+}
+
+const { item } = Astro.props as { item: News };
+const lang = Astro.params.lang as Locale;
+const t = useTranslations(lang);
+const cover = media(item.cover_path);
+const relatedApp = item.related_app_id ? (await getApps()).find((a) => a.uuid === item.related_app_id) : undefined;
+---
+
+<BaseLayout lang={lang} title={pick(item, 'title', lang)} description={pick(item, 'summary', lang)} image={cover}>
+  <article class="article">
+    <header class="container article-head">
+      <p class="article-meta">
+        <span>{t(`category.${item.category}`).toUpperCase()}</span>
+        <time datetime={item.published_at}>{formatDate(item.published_at, lang)}</time>
+      </p>
+      <h1 class="headline-l">{pick(item, 'title', lang)}</h1>
+      <p class="lead">{pick(item, 'summary', lang)}</p>
+    </header>
+
+    {
+      cover && (
+        <figure class="container-wide article-cover">
+          <img src={cover} alt="" />
+        </figure>
+      )
+    }
+
+    <div class="container article-body prose" set:html={renderMarkdown(pick(item, 'body', lang))} />
+
+    <footer class="container article-foot">
+      {
+        relatedApp && (
+          <a class="card related-app" href={localizePath(lang, `apps/${relatedApp.slug}`)}>
+            <AppIcon app={relatedApp} size={56} />
+            <span>
+              <strong>{relatedApp.name}</strong>
+              <span class="muted">{pick(relatedApp, 'tagline', lang)}</span>
+            </span>
+          </a>
+        )
+      }
+      <a class="chevron-link" href={localizePath(lang, 'newsroom')}>{t('cta.backToNewsroom')}</a>
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  .article { padding-block: clamp(48px, 8vw, 96px); }
+  .article-head, .article-body, .article-foot { max-width: 720px; }
+  .article-head { display: grid; gap: 16px; margin-bottom: 40px; }
+  .article-meta { display: flex; gap: 14px; font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.02em; }
+  .article-cover { margin-block: 0 48px; }
+  .article-cover img { width: 100%; border-radius: var(--radius-l); }
+  .article-foot { display: grid; gap: 32px; margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--border); }
+  .related-app { display: flex; align-items: center; gap: 16px; padding: 20px; color: inherit; background: var(--bg-alt); }
+  .related-app > span { display: grid; }
+</style>

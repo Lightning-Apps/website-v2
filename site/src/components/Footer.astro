@@ -1,0 +1,86 @@
+---
+import Logo from './Logo.astro';
+import { getApps } from '../lib/content';
+import { LOCALES, LOCALE_NAMES, localizePath, switchLocalePath, useTranslations, type Locale } from '../i18n/ui';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const apps = await getApps();
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="container-wide">
+    <div class="footer-cols">
+      <div>
+        <h2 class="footer-heading">{t('nav.apps')}</h2>
+        <ul>
+          {apps.map((app) => <li><a href={localizePath(lang, `apps/${app.slug}`)}>{app.name}</a></li>)}
+        </ul>
+      </div>
+      <div>
+        <h2 class="footer-heading">lightning apps</h2>
+        <ul>
+          <li><a href={localizePath(lang, 'newsroom')}>{t('nav.newsroom')}</a></li>
+          <li><a href={localizePath(lang, 'about')}>{t('nav.about')}</a></li>
+          <li><a href={localizePath(lang, 'rss.xml').replace(/\/$/, '')}>{t('footer.rss')}</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="footer-heading">{t('nav.language')}</h2>
+        <ul>
+          {
+            LOCALES.map((l) => (
+              <li>
+                <a href={switchLocalePath(Astro.url.pathname, l)} hreflang={l} lang={l} aria-current={l === lang ? 'true' : undefined}>
+                  {LOCALE_NAMES[l]}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-brand"><Logo size={14} /> © {year} lightning apps. {t('footer.rights')}</span>
+      <span class="footer-legal">
+        <a href={localizePath(lang, 'imprint')}>{t('footer.imprint')}</a>
+        <a href={localizePath(lang, 'privacy')}>{t('footer.privacy')}</a>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--bg-alt);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.33;
+    letter-spacing: -0.01em;
+    padding: 40px 0 24px;
+  }
+  .footer-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .footer-heading { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 10px; letter-spacing: -0.01em; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  a { color: var(--text-secondary); }
+  a:hover { color: var(--text); }
+  .footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 16px;
+  }
+  .footer-brand { display: inline-flex; align-items: center; gap: 6px; }
+  .footer-legal { display: flex; gap: 16px; }
+</style>

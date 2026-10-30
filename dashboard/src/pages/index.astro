@@ -1,0 +1,102 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { ENTITIES } from '../lib/entities';
+import { configError, db, formatDateTime, pendingChanges, readDeployState } from '../lib/server';
+
+const setupError = configError();
+const deployed = Astro.url.searchParams.get('deployed') === '1';
+const deployError = Astro.url.searchParams.get('error');
+const hookMissing = !import.meta.env.CF_DEPLOY_HOOK_URL;
+const siteUrl = import.meta.env.SITE_URL || 'http://localhost:4321';
+
+const { lastDeployAt } = await readDeployState();
+let pending: Record<string, number> = {};
+let counts: { label: string; href: string; total: number; drafts: number }[] = [];
+let latestNews: { id: string; title_de: string; published: boolean; published_at: string }[] = [];
+
+if (!setupError) {
+  pending = await pendingChanges(lastDeployAt);
+  counts = await Promise.all(
+    Object.values(ENTITIES)
+      .filter((e) => !e.nested)
+      .map(async (e) => {
+        const [{ count: total }, { count: drafts }] = await Promise.all([
+          db().from(e.table).select('id', { count: 'exact', head: true }),
+          db().from(e.table).select('id', { count: 'exact', head: true }).eq('published', false),
+        ]);
+        return { label: e.label, href: `/${e.key}/`, total: total ?? 0, drafts: drafts ?? 0 };
+      }),
+  );
+  const { data } = await db().from('news').select('id, title_de, published, published_at').order('published_at', { ascending: false }).limit(5);
+  latestNews = data ?? [];
+}
+const pendingTotal = Object.values(pending).reduce((a, b) => a + b, 0);
+---
+
+<DashboardLayout title="Übersicht">
+  <div class="page-head">
+    <h1>Übersicht</h1>
+    <a class="btn" href={siteUrl} target="_blank" rel="noopener">Website öffnen ↗</a>
+  </div>
+
+  {setupError && <p class="notice notice-error">{setupError} Vorlage: dashboard/.env.example</p>}
+  {deployed && <p class="notice notice-ok">Neuer Build bei Cloudflare gestartet. In 1–2 Minuten ist die Website aktuell.</p>}
+  {deployError && <p class="notice notice-error">Veröffentlichen fehlgeschlagen: {deployError}</p>}
+  {hookMissing && <p class="notice notice-warn">CF_DEPLOY_HOOK_URL ist noch nicht gesetzt – „Website veröffentlichen“ funktioniert erst danach.</p>}
+
+  <div class="cards">
+    <section class="panel publish">
+      <h2>Veröffentlichung</h2>
+      <p class="big">{pendingTotal > 0 ? `${pendingTotal} Änderung${pendingTotal === 1 ? '' : 'en'}` : 'Alles online'}</p>
+      <p class="muted">
+        {lastDeployAt ? `seit dem letzten Veröffentlichen am ${formatDateTime(lastDeployAt)}` : 'Noch nie aus dem Dashboard veröffentlicht.'}
+      </p>
+      <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
+        <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
+      </form>
+    </section>
+
+    {
+      counts.map((c) => (
+        <a class="panel stat" href={c.href}>
+          <h2>{c.label}</h2>
+          <p class="big">{c.total}</p>
+          <p class="muted">{c.drafts > 0 ? `davon ${c.drafts} Entwurf${c.drafts === 1 ? '' : 'e'}` : 'alle veröffentlicht'}</p>
+        </a>
+      ))
+    }
+  </div>
+
+  {
+    !setupError && (
+      <section class="panel">
+        <div class="page-head">
+          <h2>Neueste Beiträge</h2>
+          <a class="btn btn-primary" href="/news/new">+ Beitrag schreiben</a>
+        </div>
+        <table>
+          <tbody>
+            {latestNews.map((n) => (
+              <tr>
+                <td class="muted">{n.published_at}</td>
+                <td><a href={`/news/${n.id}`}>{n.title_de}</a></td>
+                <td><span class:list={['pill', n.published ? 'pill-published' : 'pill-draft']}>{n.published ? 'Veröffentlicht' : 'Entwurf'}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )
+  }
+</DashboardLayout>
+
+<style>
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .publish { grid-column: span 2; display: grid; gap: 6px; align-content: start; }
+  .publish form { margin-top: 10px; }
+  .stat { color: var(--text); display: grid; gap: 4px; align-content: start; }
+  .stat:hover { text-decoration: none; border-color: var(--accent); }
+  .stat h2, .publish h2 { margin: 0; color: var(--muted); font-size: 13px; }
+  .big { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  @media (max-width: 700px) { .publish { grid-column: auto; } }
+</style>

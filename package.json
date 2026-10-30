@@ -1,0 +1,11 @@
+{
+  "name": "lightningapps-website-v2",
+  "private": true,
+  "type": "module",
+  "workspaces": ["site", "dashboard", "shared"],
+  "scripts": {
+    "dev": "npm run dev -w site",
+    "build": "npm run build -w site",
+    "dashboard": "npm run dev -w dashboard"
+  }
+}

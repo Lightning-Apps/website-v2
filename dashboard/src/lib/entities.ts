@@ -1,0 +1,163 @@
+import {
+  APP_STATUSES,
+  NEWS_CATEGORIES,
+  PLATFORM_STATES,
+  PROJECT_STATUSES,
+  type Platform,
+} from '@lightning/shared';
+
+export type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'markdown'
+  | 'select'
+  | 'checkbox'
+  | 'number'
+  | 'date'
+  | 'url'
+  | 'color'
+  | 'image'
+  | 'platforms'
+  | 'app';
+
+export interface Field {
+  name: string;
+  label: string;
+  type: FieldType;
+  /** Stored as `<name>_de` and `<name>_en`. */
+  i18n?: boolean;
+  required?: boolean;
+  options?: readonly { value: string; label: string }[];
+  help?: string;
+}
+
+export interface Entity {
+  key: EntityKey;
+  table: string;
+  label: string;
+  singular: string;
+  /** Column shown as the row title in lists. */
+  titleField: string;
+  orderBy: { column: string; ascending: boolean };
+  fields: Field[];
+  /** Hidden from the sidebar (edited from another entity's page). */
+  nested?: boolean;
+}
+
+export type EntityKey = 'news' | 'apps' | 'projects' | 'features';
+
+const opts = <T extends string>(values: readonly T[], labels: Record<T, string>) =>
+  values.map((value) => ({ value, label: labels[value] }));
+
+export const PLATFORM_NAMES = ['iOS', 'iPadOS', 'macOS', 'watchOS', 'tvOS', 'visionOS'] as const;
+export const PLATFORM_STATE_LABELS: Record<Platform['state'], string> = {
+  available: 'Verfügbar',
+  in_development: 'In Entwicklung',
+  planned: 'Geplant',
+};
+
+const published: Field = { name: 'published', label: 'Veröffentlicht', type: 'checkbox', help: 'Nur veröffentlichte Einträge erscheinen auf der Website.' };
+const sortOrder: Field = { name: 'sort_order', label: 'Reihenfolge', type: 'number', help: 'Kleinere Zahl = weiter vorne.' };
+const slug: Field = { name: 'slug', label: 'Slug (URL)', type: 'text', required: true, help: 'Nur Kleinbuchstaben, Zahlen und Bindestriche, z. B. „mein-beitrag“.' };
+
+export const ENTITIES: Record<EntityKey, Entity> = {
+  news: {
+    key: 'news',
+    table: 'news',
+    label: 'Newsroom',
+    singular: 'Beitrag',
+    titleField: 'title_de',
+    orderBy: { column: 'published_at', ascending: false },
+    fields: [
+      { name: 'title', label: 'Titel', type: 'text', i18n: true, required: true },
+      slug,
+      { name: 'published_at', label: 'Datum', type: 'date', required: true },
+      {
+        name: 'category',
+        label: 'Kategorie',
+        type: 'select',
+        options: opts(NEWS_CATEGORIES, { release: 'Release', update: 'Update', studio: 'Studio' }),
+      },
+      { name: 'summary', label: 'Kurzfassung', type: 'textarea', i18n: true },
+      { name: 'body', label: 'Text', type: 'markdown', i18n: true },
+      { name: 'cover_path', label: 'Titelbild', type: 'image' },
+      { name: 'related_app_id', label: 'Zugehörige App', type: 'app' },
+      published,
+    ],
+  },
+  apps: {
+    key: 'apps',
+    table: 'apps',
+    label: 'Apps',
+    singular: 'App',
+    titleField: 'name',
+    orderBy: { column: 'sort_order', ascending: true },
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      slug,
+      { name: 'tagline', label: 'Tagline', type: 'text', i18n: true },
+      { name: 'description', label: 'Kurzbeschreibung', type: 'textarea', i18n: true },
+      { name: 'body', label: 'Ausführliche Beschreibung', type: 'markdown', i18n: true },
+      {
+        name: 'status',
+        label: 'Status',
+        type: 'select',
+        options: opts(APP_STATUSES, { available: 'Verfügbar', coming_soon: 'Demnächst', in_development: 'In Entwicklung' }),
+      },
+      { name: 'release_label', label: 'Status-Text', type: 'text', i18n: true, help: 'z. B. „Herbst 2026“ oder „Jetzt verfügbar“.' },
+      { name: 'app_store_url', label: 'App-Store-Link', type: 'url' },
+      { name: 'platforms', label: 'Plattformen', type: 'platforms' },
+      { name: 'icon_path', label: 'App-Icon', type: 'image', help: 'Quadratisch, mind. 512 × 512 px.' },
+      { name: 'hero_path', label: 'Hero-Bild', type: 'image', help: 'Großes Bild für Startseite und App-Seite (PNG mit transparentem Hintergrund wirkt am besten).' },
+      { name: 'accent_color', label: 'Akzentfarbe', type: 'color' },
+      { name: 'featured', label: 'Auf der Startseite hervorheben', type: 'checkbox' },
+      sortOrder,
+      published,
+    ],
+  },
+  features: {
+    key: 'features',
+    table: 'app_features',
+    label: 'Funktionen',
+    singular: 'Funktion',
+    titleField: 'title_de',
+    orderBy: { column: 'sort_order', ascending: true },
+    nested: true,
+    fields: [
+      { name: 'app_id', label: 'App', type: 'app', required: true },
+      { name: 'title', label: 'Titel', type: 'text', i18n: true, required: true },
+      { name: 'text', label: 'Text', type: 'textarea', i18n: true },
+      { name: 'image_path', label: 'Bild / Screenshot', type: 'image' },
+      sortOrder,
+      { ...published, help: 'Erscheint nur, wenn auch die App veröffentlicht ist.' },
+    ],
+  },
+  projects: {
+    key: 'projects',
+    table: 'projects',
+    label: 'Projekte',
+    singular: 'Projekt',
+    titleField: 'name',
+    orderBy: { column: 'sort_order', ascending: true },
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      slug,
+      { name: 'description', label: 'Beschreibung', type: 'textarea', i18n: true },
+      { name: 'url', label: 'Link', type: 'url' },
+      {
+        name: 'status',
+        label: 'Status',
+        type: 'select',
+        options: opts(PROJECT_STATUSES, { active: 'Aktiv', coming_soon: 'Demnächst', archived: 'Archiviert' }),
+      },
+      sortOrder,
+      published,
+    ],
+  },
+};
+
+export function getEntity(key: string | undefined): Entity | undefined {
+  return key && key in ENTITIES ? ENTITIES[key as EntityKey] : undefined;
+}
+
+export { PLATFORM_STATES };

@@ -1,0 +1,118 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AppIcon from '../../components/AppIcon.astro';
+import AppTile from '../../components/AppTile.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+import NewsCard from '../../components/NewsCard.astro';
+import { getApps, getNews, getProjects, media } from '../../lib/content';
+import { localeStaticPaths, localizePath, useTranslations, type Locale } from '../../i18n/ui';
+import { pick } from '@lightning/shared';
+
+export const getStaticPaths = localeStaticPaths;
+
+const lang = Astro.params.lang as Locale;
+const t = useTranslations(lang);
+const [apps, projects, news] = await Promise.all([getApps(), getProjects(), getNews()]);
+const featured = apps.find((a) => a.featured) ?? apps[0];
+const latestNews = news.slice(0, 3);
+const heroImage = featured ? media(featured.hero_path) : null;
+---
+
+<BaseLayout lang={lang} title={t('home.title')}>
+  {
+    featured && (
+      <section class="hero" style={`--accent:${featured.accent_color}`}>
+        <div class="container hero-text">
+          <AppIcon app={featured} size={96} />
+          <h1 class="headline-xl">{featured.name}</h1>
+          <p class="hero-tagline">{pick(featured, 'tagline', lang)}</p>
+          <div class="links">
+            <a class="chevron-link" href={localizePath(lang, `apps/${featured.slug}`)}>{t('cta.learnMore')}</a>
+            {featured.app_store_url && <a class="chevron-link" href={featured.app_store_url} rel="noopener">{t('cta.download')}</a>}
+          </div>
+        </div>
+        <div class="hero-visual container-wide" aria-hidden="true">
+          {heroImage ? <img src={heroImage} alt="" /> : <div class="hero-glow" />}
+        </div>
+      </section>
+    )
+  }
+
+  <section class="section section-alt" id="apps">
+    <div class="container-wide">
+      <header class="section-head reveal">
+        <h2 class="headline-l">{t('home.appsHeading')}</h2>
+        <p class="lead">{t('home.appsSub')}</p>
+      </header>
+      <div class="grid grid-2">
+        {apps.map((app) => <AppTile app={app} lang={lang} />)}
+      </div>
+    </div>
+  </section>
+
+  {
+    projects.length > 0 && (
+      <section class="section" id="projects">
+        <div class="container-wide">
+          <header class="section-head reveal">
+            <h2 class="headline-l">{t('home.projectsHeading')}</h2>
+            <p class="lead">{t('home.projectsSub')}</p>
+          </header>
+          <div class="grid grid-3">
+            {projects.map((project) => <ProjectCard project={project} lang={lang} />)}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  {
+    latestNews.length > 0 && (
+      <section class="section section-alt" id="news">
+        <div class="container-wide">
+          <header class="section-head reveal">
+            <h2 class="headline-l">{t('home.newsHeading')}</h2>
+          </header>
+          <div class="grid grid-3">
+            {latestNews.map((item) => <NewsCard item={item} lang={lang} />)}
+          </div>
+          <p class="center more-link">
+            <a class="chevron-link" href={localizePath(lang, 'newsroom')}>{t('cta.allNews')}</a>
+          </p>
+        </div>
+      </section>
+    )
+  }
+
+  <section class="section section-dark">
+    <div class="container center studio reveal">
+      <h2 class="headline-l">{t('home.studioHeading')}</h2>
+      <p class="lead">{t('home.studioText')}</p>
+      <a class="button" href={localizePath(lang, 'about')}>{t('home.studioCta')}</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { padding-top: clamp(56px, 9vw, 96px); text-align: center; overflow: hidden; }
+  .hero-text { display: grid; justify-items: center; gap: 14px; }
+  .hero-text h1 { margin-top: 10px; }
+  .hero-tagline { font-size: clamp(24px, 3.4vw, 32px); font-weight: 500; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .hero-visual { display: flex; justify-content: center; margin-top: 48px; }
+  .hero-visual img { max-height: 560px; width: auto; }
+  .hero-glow {
+    width: min(900px, 100%);
+    height: clamp(220px, 32vw, 380px);
+    background:
+      radial-gradient(ellipse 60% 70% at 50% 100%, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%),
+      radial-gradient(ellipse 40% 50% at 30% 100%, color-mix(in srgb, #ff375f 30%, transparent), transparent 70%),
+      radial-gradient(ellipse 40% 50% at 70% 100%, color-mix(in srgb, #0a84ff 35%, transparent), transparent 70%);
+    animation: breathe 8s ease-in-out infinite alternate;
+  }
+  @keyframes breathe {
+    from { transform: scale(1); opacity: 0.85; }
+    to { transform: scale(1.06); opacity: 1; }
+  }
+  .more-link { margin-top: 40px; font-size: 19px; }
+  .studio { display: grid; justify-items: center; gap: 20px; max-width: 760px; }
+</style>

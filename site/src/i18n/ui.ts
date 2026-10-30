@@ -1,0 +1,179 @@
+import { LOCALES, type Locale } from '@lightning/shared';
+
+export { LOCALES, type Locale };
+
+export const LOCALE_NAMES: Record<Locale, string> = { de: 'Deutsch', en: 'English' };
+
+const ui = {
+  de: {
+    'nav.apps': 'Our Apps',
+    'nav.allApps': 'Alle Apps ansehen',
+    'nav.newsroom': 'Newsroom',
+    'nav.about': 'About Us',
+    'nav.menu': 'Menü',
+    'nav.close': 'Schließen',
+    'nav.language': 'Sprache',
+    'cta.learnMore': 'Mehr erfahren',
+    'cta.download': 'Laden',
+    'cta.readMore': 'Weiterlesen',
+    'cta.allNews': 'Alle Neuigkeiten',
+    'cta.visit': 'Ansehen',
+    'cta.backToNewsroom': 'Zurück zum Newsroom',
+    'status.available': 'Verfügbar',
+    'status.coming_soon': 'Demnächst',
+    'status.in_development': 'In Entwicklung',
+    'platform.available': 'Verfügbar',
+    'platform.in_development': 'In Entwicklung',
+    'platform.planned': 'Geplant',
+    'project.active': 'Aktiv',
+    'project.coming_soon': 'Demnächst',
+    'project.archived': 'Archiviert',
+    'category.all': 'Alle',
+    'category.release': 'Release',
+    'category.update': 'Update',
+    'category.studio': 'Studio',
+    'home.title': 'Apps, die einfach funktionieren.',
+    'home.appsHeading': 'Unsere Apps.',
+    'home.appsSub': 'Mit Liebe zum Detail für Apple-Plattformen entwickelt.',
+    'home.projectsHeading': 'Projekte.',
+    'home.projectsSub': 'Experimente, Open Source und alles dazwischen.',
+    'home.newsHeading': 'Neues aus dem Newsroom.',
+    'home.studioHeading': 'Ein kleines Studio mit großen Ideen.',
+    'home.studioText': 'lightning apps ist ein unabhängiges Entwicklerstudio. Wir bauen Software, die wir selbst gerne benutzen.',
+    'home.studioCta': 'Über uns',
+    'apps.title': 'Unsere Apps',
+    'apps.sub': 'Alle Apps von lightning apps auf einen Blick.',
+    'app.overview': 'Überblick',
+    'app.features': 'Funktionen',
+    'app.platforms': 'Plattformen',
+    'app.relatedNews': 'Neuigkeiten zu',
+    'app.notYet': 'Bald verfügbar',
+    'about.title': 'About Us',
+    'about.lead': 'Wir bauen Apps, die sich selbstverständlich anfühlen.',
+    'about.storyHeading': 'Unsere Geschichte',
+    'about.story': 'Platzhalter: Hier erzählst du, wie lightning apps entstanden ist, was dich antreibt und wohin die Reise geht.',
+    'about.valuesHeading': 'Woran wir glauben',
+    'about.value1Title': 'Einfachheit',
+    'about.value1Text': 'Platzhalter: Gute Software erklärt sich selbst.',
+    'about.value2Title': 'Privatsphäre',
+    'about.value2Text': 'Platzhalter: Deine Daten gehören dir.',
+    'about.value3Title': 'Handwerk',
+    'about.value3Text': 'Platzhalter: Jedes Detail zählt.',
+    'about.teamHeading': 'Das Team',
+    'about.founderRole': 'Gründer & Entwickler',
+    'about.contactHeading': 'Kontakt',
+    'about.contactText': 'Fragen, Feedback oder Presseanfragen? Schreib uns.',
+    'newsroom.title': 'Newsroom',
+    'newsroom.sub': 'Neuigkeiten, Updates und Ankündigungen von lightning apps.',
+    'newsroom.empty': 'Noch keine Beiträge.',
+    'newsroom.latest': 'Neueste Meldung',
+    'footer.imprint': 'Impressum',
+    'footer.privacy': 'Datenschutz',
+    'footer.rss': 'RSS',
+    'footer.rights': 'Alle Rechte vorbehalten.',
+    'imprint.title': 'Impressum',
+    'privacy.title': 'Datenschutzerklärung',
+    'legal.placeholder': 'Platzhalter: Hier kommen die rechtlich erforderlichen Angaben hin.',
+    'skip': 'Zum Inhalt springen',
+  },
+  en: {
+    'nav.apps': 'Our Apps',
+    'nav.allApps': 'View all apps',
+    'nav.newsroom': 'Newsroom',
+    'nav.about': 'About Us',
+    'nav.menu': 'Menu',
+    'nav.close': 'Close',
+    'nav.language': 'Language',
+    'cta.learnMore': 'Learn more',
+    'cta.download': 'Download',
+    'cta.readMore': 'Read more',
+    'cta.allNews': 'All news',
+    'cta.visit': 'View',
+    'cta.backToNewsroom': 'Back to Newsroom',
+    'status.available': 'Available',
+    'status.coming_soon': 'Coming soon',
+    'status.in_development': 'In development',
+    'platform.available': 'Available',
+    'platform.in_development': 'In development',
+    'platform.planned': 'Planned',
+    'project.active': 'Active',
+    'project.coming_soon': 'Coming soon',
+    'project.archived': 'Archived',
+    'category.all': 'All',
+    'category.release': 'Release',
+    'category.update': 'Update',
+    'category.studio': 'Studio',
+    'home.title': 'Apps that just work.',
+    'home.appsHeading': 'Our apps.',
+    'home.appsSub': 'Crafted with care for Apple platforms.',
+    'home.projectsHeading': 'Projects.',
+    'home.projectsSub': 'Experiments, open source and everything in between.',
+    'home.newsHeading': 'Latest from the Newsroom.',
+    'home.studioHeading': 'A small studio with big ideas.',
+    'home.studioText': 'lightning apps is an independent developer studio. We build software we love to use ourselves.',
+    'home.studioCta': 'About us',
+    'apps.title': 'Our Apps',
+    'apps.sub': 'Every app from lightning apps at a glance.',
+    'app.overview': 'Overview',
+    'app.features': 'Features',
+    'app.platforms': 'Platforms',
+    'app.relatedNews': 'News about',
+    'app.notYet': 'Coming soon',
+    'about.title': 'About Us',
+    'about.lead': 'We build apps that feel natural.',
+    'about.storyHeading': 'Our story',
+    'about.story': 'Placeholder: Tell the story of how lightning apps started, what drives you and where it is heading.',
+    'about.valuesHeading': 'What we believe in',
+    'about.value1Title': 'Simplicity',
+    'about.value1Text': 'Placeholder: Good software explains itself.',
+    'about.value2Title': 'Privacy',
+    'about.value2Text': 'Placeholder: Your data belongs to you.',
+    'about.value3Title': 'Craft',
+    'about.value3Text': 'Placeholder: Every detail matters.',
+    'about.teamHeading': 'The team',
+    'about.founderRole': 'Founder & Developer',
+    'about.contactHeading': 'Contact',
+    'about.contactText': 'Questions, feedback or press inquiries? Get in touch.',
+    'newsroom.title': 'Newsroom',
+    'newsroom.sub': 'News, updates and announcements from lightning apps.',
+    'newsroom.empty': 'No posts yet.',
+    'newsroom.latest': 'Latest',
+    'footer.imprint': 'Imprint',
+    'footer.privacy': 'Privacy',
+    'footer.rss': 'RSS',
+    'footer.rights': 'All rights reserved.',
+    'imprint.title': 'Imprint',
+    'privacy.title': 'Privacy Policy',
+    'legal.placeholder': 'Placeholder: The legally required information goes here.',
+    'skip': 'Skip to content',
+  },
+} as const satisfies Record<Locale, Record<string, string>>;
+
+export type UiKey = keyof (typeof ui)['de'];
+
+export function useTranslations(lang: Locale) {
+  return (key: UiKey): string => ui[lang][key] ?? ui.de[key];
+}
+
+/** Builds a localized path, e.g. localizePath('en', 'apps/aurora') → '/en/apps/aurora/'. */
+export function localizePath(lang: Locale, path = ''): string {
+  const clean = path.replace(/^\/+|\/+$/g, '');
+  return clean ? `/${lang}/${clean}/` : `/${lang}/`;
+}
+
+/** Same page in another language: swaps the locale prefix of the current path. */
+export function switchLocalePath(pathname: string, target: Locale): string {
+  return pathname.replace(/^\/(de|en)(?=\/|$)/, `/${target}`);
+}
+
+export function formatDate(date: string, lang: Locale): string {
+  return new Intl.DateTimeFormat(lang === 'de' ? 'de-DE' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${date}T12:00:00Z`));
+}
+
+export function localeStaticPaths() {
+  return LOCALES.map((lang) => ({ params: { lang } }));
+}

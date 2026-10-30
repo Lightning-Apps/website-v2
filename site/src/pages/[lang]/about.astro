@@ -1,0 +1,104 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Logo from '../../components/Logo.astro';
+import { localeStaticPaths, useTranslations, type Locale } from '../../i18n/ui';
+
+export const getStaticPaths = localeStaticPaths;
+
+const lang = Astro.params.lang as Locale;
+const t = useTranslations(lang);
+const values = [
+  { title: t('about.value1Title'), text: t('about.value1Text') },
+  { title: t('about.value2Title'), text: t('about.value2Text') },
+  { title: t('about.value3Title'), text: t('about.value3Text') },
+];
+// Placeholder contact address – replace with the studio's real one.
+const contactEmail = 'hello@example.com';
+---
+
+<BaseLayout lang={lang} title={t('about.title')} description={t('about.lead')}>
+  <section class="section about-hero">
+    <div class="container center">
+      <span class="about-logo"><Logo size={56} /></span>
+      <p class="eyebrow">{t('about.title')}</p>
+      <h1 class="headline-xl">{t('about.lead')}</h1>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container story reveal">
+      <h2 class="headline-l">{t('about.storyHeading')}</h2>
+      <p class="lead">{t('about.story')}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container-wide">
+      <h2 class="headline-l center section-head">{t('about.valuesHeading')}</h2>
+      <div class="grid grid-3">
+        {
+          values.map((v, i) => (
+            <article class="card value reveal">
+              <span class="value-num">{String(i + 1).padStart(2, '0')}</span>
+              <h3 class="headline-s">{v.title}</h3>
+              <p class="muted">{v.text}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="headline-l center section-head">{t('about.teamHeading')}</h2>
+      <div class="team reveal">
+        <article class="card person">
+          <span class="avatar" aria-hidden="true">HK</span>
+          <h3 class="headline-s">Henry Krieger</h3>
+          <p class="muted">{t('about.founderRole')}</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-dark">
+    <div class="container center contact reveal">
+      <h2 class="headline-l">{t('about.contactHeading')}</h2>
+      <p class="lead">{t('about.contactText')}</p>
+      <a class="button" href={`mailto:${contactEmail}`}>{contactEmail}</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .about-hero .container { display: grid; justify-items: center; gap: 12px; max-width: 860px; }
+  .about-logo {
+    display: grid;
+    place-items: center;
+    width: 96px;
+    height: 96px;
+    margin-bottom: 16px;
+    border-radius: 22px;
+    color: #fff;
+    background: linear-gradient(145deg, #2997ff, #0071e3 55%, #5e5ce6);
+  }
+  .story { max-width: 760px; display: grid; gap: 24px; }
+  .value { display: grid; gap: 12px; padding: 36px; align-content: start; }
+  .value-num { font-size: 40px; font-weight: 700; color: var(--accent); letter-spacing: -0.03em; }
+  .team { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 300px)); justify-content: center; gap: 20px; }
+  .person { display: grid; justify-items: center; gap: 8px; padding: 40px 24px; text-align: center; }
+  .avatar {
+    display: grid;
+    place-items: center;
+    width: 112px;
+    height: 112px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    font-size: 36px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(145deg, #636366, #1d1d1f);
+  }
+  .contact { display: grid; justify-items: center; gap: 20px; }
+</style>

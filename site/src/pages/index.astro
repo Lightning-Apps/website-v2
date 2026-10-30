@@ -1,0 +1,17 @@
+---
+// Sends visitors to their browser language (German by default).
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0; url=/de/" />
+    <link rel="canonical" href="/de/" />
+    <title>lightning apps</title>
+    <script is:inline>
+      location.replace(navigator.language?.toLowerCase().startsWith('de') ? '/de/' : '/en/');
+    </script>
+  </head>
+  <body><a href="/de/">lightning apps</a></body>
+</html>

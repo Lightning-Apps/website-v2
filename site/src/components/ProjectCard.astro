@@ -1,0 +1,26 @@
+---
+import type { Project } from '../lib/content';
+import { useTranslations, type Locale } from '../i18n/ui';
+import { pick } from '@lightning/shared';
+
+interface Props {
+  project: Project;
+  lang: Locale;
+}
+const { project, lang } = Astro.props;
+const t = useTranslations(lang);
+const Tag = project.url ? 'a' : 'div';
+---
+
+<Tag class="card project reveal" href={project.url ?? undefined} rel={project.url ? 'noopener' : undefined}>
+  <span class:list={['badge', { 'badge-coming_soon': project.status === 'coming_soon' }]}>{t(`project.${project.status}`)}</span>
+  <h3 class="headline-s">{project.name}</h3>
+  <p class="muted">{pick(project, 'description', lang)}</p>
+  {project.url && <span class="chevron-link project-link">{t('cta.visit')}</span>}
+</Tag>
+
+<style>
+  .project { display: grid; align-content: start; gap: 12px; padding: 32px; color: inherit; }
+  .project .badge { justify-self: start; }
+  .project-link { color: var(--link); margin-top: 4px; }
+</style>

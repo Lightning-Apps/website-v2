@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AppTile from '../../../components/AppTile.astro';
+import { getApps } from '../../../lib/content';
+import { localeStaticPaths, useTranslations, type Locale } from '../../../i18n/ui';
+
+export const getStaticPaths = localeStaticPaths;
+
+const lang = Astro.params.lang as Locale;
+const t = useTranslations(lang);
+const apps = await getApps();
+---
+
+<BaseLayout lang={lang} title={t('apps.title')} description={t('apps.sub')}>
+  <section class="section">
+    <div class="container-wide">
+      <header class="section-head">
+        <h1 class="headline-xl">{t('apps.title')}</h1>
+        <p class="lead">{t('apps.sub')}</p>
+      </header>
+      <div class="grid grid-2">
+        {apps.map((app) => <AppTile app={app} lang={lang} />)}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
