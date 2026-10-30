@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev"
+    "dev": "astro dev",
+    "build": "astro build",
+    "start": "node dist/server/entry.mjs",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.9",

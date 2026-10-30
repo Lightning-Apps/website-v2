@@ -1,0 +1,24 @@
+# lightning apps dashboard on the home server.
+#   1. cp dashboard/.env.example dashboard/.env.server and fill it in (see README)
+#   2. docker compose -f compose.dashboard.yml up -d --build
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: lightning-dashboard
+    restart: unless-stopped
+    env_file: dashboard/.env.server
+    ports:
+      # Reachable in the home network / VPN only. Do not forward this port in your router.
+      - "${DASHBOARD_PORT:-4322}:4322"
+    volumes:
+      - dashboard-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  dashboard-data:

@@ -1,13 +1,14 @@
 ---
 import DashboardLayout from '../layouts/DashboardLayout.astro';
 import { ENTITIES } from '../lib/entities';
+import { CF_DEPLOY_HOOK_URL, SITE_URL } from 'astro:env/server';
 import { configError, db, formatDateTime, pendingChanges, readDeployState } from '../lib/server';
 
 const setupError = configError();
 const deployed = Astro.url.searchParams.get('deployed') === '1';
 const deployError = Astro.url.searchParams.get('error');
-const hookMissing = !import.meta.env.CF_DEPLOY_HOOK_URL;
-const siteUrl = import.meta.env.SITE_URL || 'http://localhost:4321';
+const hookMissing = !CF_DEPLOY_HOOK_URL;
+const siteUrl = SITE_URL || 'http://localhost:4321';
 
 const { lastDeployAt } = await readDeployState();
 let pending: Record<string, number> = {};

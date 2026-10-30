@@ -5,7 +5,7 @@ Zwei Teile in einem Repo:
 | Ordner | Was | Läuft wo |
 | --- | --- | --- |
 | `site/` | Öffentliche Website (Astro, komplett statisch, DE/EN) | Cloudflare Pages |
-| `dashboard/` | Redaktions-Dashboard für Apps, Projekte, News | **nur lokal** auf deinem Mac |
+| `dashboard/` | Redaktions-Dashboard für Apps, Projekte, News | lokal auf deinem Mac oder als Docker-Container im Heimnetz |
 | `supabase/` | Datenbank-Schema (`migrations/`) und Platzhalter-Inhalte (`seed.sql`) | Supabase-Projekt „Game Tracker“ (`dxftytekcnsmpbxxtxdx`) |
 | `shared/` | Gemeinsame Typen und Helfer | – |
 
@@ -60,6 +60,46 @@ Pages-Projekt mit dem Git-Repo verbinden:
 - **Build output directory:** `dist`
 - **Environment variables:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SITE_URL` (deine Domain), `NODE_VERSION=26`
 - Danach unter *Settings → Builds → Deploy hooks* einen Hook anlegen und die URL in `dashboard/.env` eintragen.
+
+## Dashboard auf dem Homeserver (Docker)
+
+Auf dem Server läuft das Dashboard als Container mit Passwort-Login. Es bleibt **nur im Heimnetz bzw. per VPN erreichbar** – den Port nicht im Router freigeben.
+
+Auf der Ubuntu-VM (Docker + Compose vorhanden):
+
+```bash
+git clone https://github.com/Lightning-Apps/lightning-apps-website.git
+cd lightning-apps-website
+cp dashboard/.env.example dashboard/.env.server
+```
+
+Passwort-Hash und Session-Secret erzeugen (fragt das Passwort verdeckt ab, mind. 12 Zeichen; Node auf dem Server ist nicht nötig):
+
+```bash
+docker run --rm -it -v "$PWD/dashboard/scripts:/s:ro" node:26-alpine node /s/hash-password.mjs
+```
+
+In `dashboard/.env.server` eintragen:
+
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CF_DEPLOY_HOOK_URL`, `SITE_URL`
+- die beiden ausgegebenen Zeilen `DASHBOARD_PASSWORD_HASH=…` und `DASHBOARD_SESSION_SECRET=…`
+- `DASHBOARD_ALLOWED_HOSTS` – genau die Adressen, unter denen du das Dashboard aufrufst, mit Port, z. B. `192.168.1.20:4322,ubuntu-vm.local:4322`. Hinter einem Reverse Proxy mit eigener Domain: `dashboard.home.lan` (ohne Port).
+
+Starten:
+
+```bash
+docker compose -f compose.dashboard.yml up -d --build
+```
+
+Danach `http://<IP-der-VM>:4322` öffnen. Anderer Port: `DASHBOARD_PORT=8090 docker compose -f compose.dashboard.yml up -d` (dann den Port auch in `DASHBOARD_ALLOWED_HOSTS` anpassen).
+
+Update nach neuen Commits:
+
+```bash
+git pull && docker compose -f compose.dashboard.yml up -d --build
+```
+
+Sicherheit im Überblick: Login mit scrypt-gehashtem Passwort, signiertes HttpOnly-Session-Cookie (14 Tage), Sperre nach 5 Fehlversuchen für 15 Minuten, nur erlaubte Hostnamen, Formulare nur von der eigenen Adresse, Container läuft als Nicht-Root mit schreibgeschütztem Dateisystem. Secrets werden zur Laufzeit gelesen und landen nie im Image.
 
 ## Einen News-Beitrag veröffentlichen
 

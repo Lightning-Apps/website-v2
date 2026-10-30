@@ -1,5 +1,6 @@
 ---
 import { ENTITIES } from '../lib/entities';
+import { authRequired } from '../lib/auth';
 
 interface Props {
   title: string;
@@ -37,6 +38,13 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
       <form method="post" action="/api/deploy" class="deploy-form" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
         <button class="btn btn-primary btn-block" type="submit">Website veröffentlichen</button>
       </form>
+      {
+        authRequired() && (
+          <form method="post" action="/logout">
+            <button class="btn btn-block" type="submit">Abmelden</button>
+          </form>
+        )
+      }
     </aside>
     <main class="main">
       <slot />
@@ -117,7 +125,7 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
   .sidebar nav a { padding: 8px 10px; border-radius: 8px; color: var(--text); font-weight: 500; }
   .sidebar nav a:hover { background: color-mix(in srgb, var(--text) 6%, transparent); text-decoration: none; }
   .sidebar nav a.active { background: var(--accent); color: #fff; }
-  .deploy-form { margin-top: auto; }
+  .deploy-form { margin-top: auto; margin-bottom: 6px; }
 
   .main { padding: 32px 40px 64px; max-width: 1100px; width: 100%; }
   .page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }

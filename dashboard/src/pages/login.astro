@@ -1,0 +1,109 @@
+---
+import { SESSION_COOKIE, attemptLogin, authConfigError, authRequired, createSession, lockedMinutes } from '../lib/auth';
+
+if (!authRequired()) return Astro.redirect('/', 303);
+
+const configError = authConfigError();
+const client = Astro.clientAddress;
+const next = Astro.url.searchParams.get('next');
+// Only allow local paths as redirect targets.
+const target = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+let error: string | null = null;
+
+if (!configError && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (attemptLogin(client, String(form.get('password') ?? ''))) {
+    const session = createSession();
+    const https = Astro.url.protocol === 'https:' || Astro.request.headers.get('x-forwarded-proto') === 'https';
+    Astro.cookies.set(SESSION_COOKIE, session.value, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: https,
+      path: '/',
+      maxAge: session.maxAge,
+    });
+    return Astro.redirect(target, 303);
+  }
+  const minutes = lockedMinutes(client);
+  error = minutes > 0 ? `Zu viele Fehlversuche. Bitte in ${minutes} Minuten erneut versuchen.` : 'Falsches Passwort.';
+}
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Anmelden – lightning apps Dashboard</title>
+  </head>
+  <body>
+    <main class="login">
+      <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 1.5 4 13.6h6.3L9 22.5l10-12.6h-6.4l.9-8.4Z"></path></svg>
+      <h1>lightning apps Dashboard</h1>
+      {configError && <p class="error">{configError}</p>}
+      {
+        !configError && (
+          <form method="post">
+            <label for="password">Passwort</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+            {error && <p class="error">{error}</p>}
+            <button type="submit">Anmelden</button>
+          </form>
+        )
+      }
+    </main>
+  </body>
+</html>
+
+<style>
+  :root { color-scheme: light dark; --bg: #f5f5f7; --panel: #fff; --text: #1d1d1f; --border: #d2d2d7; --accent: #0071e3; --danger: #e30000; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000; --panel: #1c1c1e; --text: #f5f5f7; --border: #38383a; --accent: #0a84ff; --danger: #ff453a; } }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+    font-size: 15px;
+  }
+  .login {
+    width: min(360px, 100%);
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    padding: 36px 28px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+  }
+  h1 { margin: 0; font-size: 21px; letter-spacing: -0.02em; text-align: center; }
+  form { width: 100%; display: grid; gap: 10px; }
+  label { font-weight: 600; font-size: 13px; }
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button {
+    margin-top: 6px;
+    padding: 10px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .error { margin: 0; color: var(--danger); font-weight: 500; text-align: center; }
+</style>

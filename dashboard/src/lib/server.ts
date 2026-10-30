@@ -1,21 +1,23 @@
 // Server-only helpers. The service_role key never leaves this process.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { CF_DEPLOY_HOOK_URL, DASHBOARD_DATA_DIR, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from 'astro:env/server';
 import { LOCALES, MEDIA_BUCKET, PLATFORM_STATES, type Platform } from '@lightning/shared';
 import { PLATFORM_NAMES, type Entity, type Field } from './entities';
 
 let client: SupabaseClient | undefined;
 
 export function configError(): string | null {
-  if (!import.meta.env.SUPABASE_URL) return 'SUPABASE_URL fehlt in dashboard/.env.';
-  if (!import.meta.env.SUPABASE_SERVICE_ROLE_KEY) return 'SUPABASE_SERVICE_ROLE_KEY fehlt in dashboard/.env.';
+  if (!SUPABASE_URL) return 'SUPABASE_URL fehlt in der .env.';
+  if (!SUPABASE_SERVICE_ROLE_KEY) return 'SUPABASE_SERVICE_ROLE_KEY fehlt in der .env.';
   return null;
 }
 
 export function db(): SupabaseClient {
   const error = configError();
   if (error) throw new Error(error);
-  client ??= createClient(import.meta.env.SUPABASE_URL, import.meta.env.SUPABASE_SERVICE_ROLE_KEY, {
+  client ??= createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return client;
@@ -92,8 +94,9 @@ export async function cleanupImages(entity: Entity, before: Record<string, unkno
   if (stale.length) await db().storage.from(MEDIA_BUCKET).remove(stale);
 }
 
-/* Deploy state lives in a local, gitignored file. */
-const STATE_FILE = new URL('../../.deploy-state.json', import.meta.url);
+/* Deploy state lives in a local, gitignored file (a volume in Docker). */
+const DATA_DIR = DASHBOARD_DATA_DIR || process.cwd();
+const STATE_FILE = join(DATA_DIR, '.deploy-state.json');
 
 interface DeployState {
   lastDeployAt: string | null;
@@ -108,10 +111,11 @@ export async function readDeployState(): Promise<DeployState> {
 }
 
 export async function triggerDeploy(): Promise<void> {
-  const hook = import.meta.env.CF_DEPLOY_HOOK_URL;
-  if (!hook) throw new Error('CF_DEPLOY_HOOK_URL fehlt in dashboard/.env.');
+  const hook = CF_DEPLOY_HOOK_URL;
+  if (!hook) throw new Error('CF_DEPLOY_HOOK_URL fehlt in der .env.');
   const res = await fetch(hook, { method: 'POST' });
   if (!res.ok) throw new Error(`Cloudflare antwortete mit ${res.status} ${res.statusText}.`);
+  await mkdir(DATA_DIR, { recursive: true });
   await writeFile(STATE_FILE, JSON.stringify({ lastDeployAt: new Date().toISOString() } satisfies DeployState, null, 2));
 }
 
