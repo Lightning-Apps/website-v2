@@ -2,7 +2,9 @@
 import DashboardLayout from '../layouts/DashboardLayout.astro';
 import { ENTITIES } from '../lib/entities';
 import { CF_DEPLOY_HOOK_URL, SITE_URL } from 'astro:env/server';
-import { configError, db, formatDateTime, pendingChanges, readDeployState } from '../lib/server';
+import ChangesDialog from '../components/ChangesDialog.astro';
+import { configError, db, formatDateTime } from '../lib/server';
+import { getChangelog, readDeployState, type Changelog } from '../lib/publish';
 
 const setupError = configError();
 const deployed = Astro.url.searchParams.get('deployed') === '1';
@@ -10,14 +12,13 @@ const deployError = Astro.url.searchParams.get('error');
 const hookMissing = !CF_DEPLOY_HOOK_URL;
 const siteUrl = SITE_URL || 'http://localhost:4321';
 
-const deployState = await readDeployState();
-const { lastDeployAt } = deployState;
-let pending = { changed: 0, deleted: 0 };
+const { lastDeployAt } = await readDeployState();
+let changelog: Changelog = { entries: [], drafts: [], unnamedDeletions: 0, exact: true };
 let counts: { label: string; href: string; total: number; drafts: number }[] = [];
 let latestNews: { id: string; title_de: string; published: boolean; published_at: string }[] = [];
 
 if (!setupError) {
-  pending = await pendingChanges(deployState);
+  changelog = await getChangelog();
   counts = await Promise.all(
     Object.values(ENTITIES)
       .filter((e) => !e.nested)
@@ -32,7 +33,13 @@ if (!setupError) {
   const { data } = await db().from('news').select('id, title_de, published, published_at').order('published_at', { ascending: false }).limit(5);
   latestNews = data ?? [];
 }
+// Only changes that affect the live website count; draft-only edits are listed separately in the overlay.
+const pending = {
+  changed: changelog.entries.filter((e) => e.kind !== 'deleted').length,
+  deleted: changelog.entries.filter((e) => e.kind === 'deleted').length + changelog.unnamedDeletions,
+};
 const pendingTotal = pending.changed + pending.deleted;
+const hasDetails = pendingTotal > 0 || changelog.drafts.length > 0;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const breakdown = [
   pending.changed > 0 && plural(pending.changed, 'Eintrag geändert oder neu', 'Einträge geändert oder neu'),
@@ -67,9 +74,12 @@ const breakdown = [
       <p class="muted small">
         {lastDeployAt ? `Zuletzt veröffentlicht: ${formatDateTime(lastDeployAt)} Uhr` : 'Noch nie aus dem Dashboard veröffentlicht.'}
       </p>
-      <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
-        <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
-      </form>
+      <div class="publish-actions">
+        <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
+          <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
+        </form>
+        {hasDetails && <button class="btn" type="button" data-open-changes>Änderungen ansehen</button>}
+      </div>
     </section>
 
     {
@@ -104,12 +114,14 @@ const breakdown = [
       </section>
     )
   }
+  {!setupError && <ChangesDialog changelog={changelog} lastDeployAt={lastDeployAt} />}
 </DashboardLayout>
 
 <style>
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .publish { grid-column: span 2; display: grid; gap: 6px; align-content: start; }
-  .publish form { margin-top: 10px; }
+  .publish-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .publish-actions form { margin: 0; }
   .stat { color: var(--text); display: grid; gap: 4px; align-content: start; }
   .stat:hover { text-decoration: none; border-color: var(--accent); }
   .stat h2, .publish h2 { margin: 0; color: var(--muted); font-size: 13px; }

@@ -10,3 +10,4 @@ site/src
 site/public
 supabase
 **/.deploy-state.json
+**/.deploy-snapshot.json

@@ -5,7 +5,8 @@ import RowActions from '../../components/RowActions.astro';
 import SortHandle from '../../components/SortHandle.astro';
 import Sortable from '../../components/Sortable.astro';
 import { ENTITIES, getEntity } from '../../lib/entities';
-import { cleanupImages, configError, db, formToRow, recordDeletion } from '../../lib/server';
+import { cleanupImages, configError, db, formToRow } from '../../lib/server';
+import { recordDeletion } from '../../lib/publish';
 
 const entity = getEntity(Astro.params.entity);
 if (!entity) return new Response('Not found', { status: 404 });

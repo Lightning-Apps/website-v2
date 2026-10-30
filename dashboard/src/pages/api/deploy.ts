@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { triggerDeploy } from '../../lib/server';
+import { triggerDeploy } from '../../lib/publish';
 
 export const POST: APIRoute = async ({ redirect }) => {
   try {

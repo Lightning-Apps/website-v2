@@ -1,8 +1,6 @@
 // Server-only helpers. The service_role key never leaves this process.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { CF_DEPLOY_HOOK_URL, DASHBOARD_DATA_DIR, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from 'astro:env/server';
+import { SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from 'astro:env/server';
 import { LOCALES, MEDIA_BUCKET, PLATFORM_STATES, type Platform } from '@lightning/shared';
 import { PLATFORM_NAMES, type Entity, type Field } from './entities';
 
@@ -99,63 +97,6 @@ export async function cleanupImages(entity: Entity, before: Record<string, unkno
     .filter((column) => before[column] && (after === null || (column in after && after[column] !== before[column])))
     .map((column) => String(before[column]));
   if (stale.length) await db().storage.from(MEDIA_BUCKET).remove(stale);
-}
-
-/* Deploy state lives in a local, gitignored file (a volume in Docker). */
-const DATA_DIR = DASHBOARD_DATA_DIR || process.cwd();
-const STATE_FILE = join(DATA_DIR, '.deploy-state.json');
-
-interface DeployState {
-  lastDeployAt: string | null;
-  /** Rows deleted since the last deploy that are still visible on the live site. */
-  pendingDeletions: number;
-}
-
-export async function readDeployState(): Promise<DeployState> {
-  try {
-    const state = JSON.parse(await readFile(STATE_FILE, 'utf8')) as Partial<DeployState>;
-    return { lastDeployAt: state.lastDeployAt ?? null, pendingDeletions: state.pendingDeletions ?? 0 };
-  } catch {
-    return { lastDeployAt: null, pendingDeletions: 0 };
-  }
-}
-
-async function writeDeployState(state: DeployState): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
-}
-
-export async function triggerDeploy(): Promise<void> {
-  const hook = CF_DEPLOY_HOOK_URL;
-  if (!hook) throw new Error('CF_DEPLOY_HOOK_URL fehlt in der .env.');
-  const res = await fetch(hook, { method: 'POST' });
-  if (!res.ok) throw new Error(`Cloudflare antwortete mit ${res.status} ${res.statusText}.`);
-  await writeDeployState({ lastDeployAt: new Date().toISOString(), pendingDeletions: 0 });
-}
-
-/**
- * Remembers a deletion until the next deploy, but only if the row is still on the live site:
- * it was published and already existed at the last deploy.
- */
-export async function recordDeletion(row: { published?: boolean; created_at?: string } | null): Promise<void> {
-  if (!row?.published) return;
-  const state = await readDeployState();
-  if (state.lastDeployAt && row.created_at && row.created_at > state.lastDeployAt) return;
-  await writeDeployState({ ...state, pendingDeletions: state.pendingDeletions + 1 });
-}
-
-/** Changes that are not on the live site yet: edited/created rows and deletions since the last deploy. */
-export async function pendingChanges(state: DeployState): Promise<{ changed: number; deleted: number }> {
-  const tables = ['apps', 'app_features', 'projects', 'news'];
-  const counts = await Promise.all(
-    tables.map(async (table) => {
-      let query = db().from(table).select('id', { count: 'exact', head: true });
-      if (state.lastDeployAt) query = query.gt('updated_at', state.lastDeployAt);
-      const { count } = await query;
-      return count ?? 0;
-    }),
-  );
-  return { changed: counts.reduce((a, b) => a + b, 0), deleted: state.pendingDeletions };
 }
 
 export function formatDateTime(iso: string): string {

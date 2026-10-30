@@ -1,0 +1,156 @@
+---
+// Overlay listing the changes that are not on the live website yet.
+import { ENTITIES, type EntityKey } from '../lib/entities';
+import type { ChangeEntry, Changelog } from '../lib/publish';
+import { formatDateTime } from '../lib/server';
+
+interface Props {
+  changelog: Changelog;
+  lastDeployAt: string | null;
+}
+const { changelog, lastDeployAt } = Astro.props;
+
+const KIND: Record<ChangeEntry['kind'], { label: string; cls: string }> = {
+  new: { label: 'Neu', cls: 'kind-new' },
+  changed: { label: 'Geändert', cls: 'kind-changed' },
+  deleted: { label: 'Gelöscht', cls: 'kind-deleted' },
+};
+
+function groups(list: ChangeEntry[]) {
+  const map = new Map<EntityKey, ChangeEntry[]>();
+  for (const entry of list) map.set(entry.entity, [...(map.get(entry.entity) ?? []), entry]);
+  return [...map.entries()].map(([key, items]) => ({ label: ENTITIES[key].label, items }));
+}
+const live = groups(changelog.entries);
+const drafts = changelog.drafts;
+---
+
+<dialog class="changes" id="changes-dialog" aria-labelledby="changes-title">
+  <header class="changes-head">
+    <div>
+      <h2 id="changes-title">Offene Änderungen</h2>
+      <p class="muted">
+        {lastDeployAt ? `Seit dem letzten Veröffentlichen am ${formatDateTime(lastDeployAt)} Uhr` : 'Seit Beginn – es wurde noch nie aus dem Dashboard veröffentlicht.'}
+      </p>
+    </div>
+    <button type="button" class="close" data-close-dialog aria-label="Schließen">✕</button>
+  </header>
+
+  <div class="changes-body">
+    {
+      !changelog.exact && (
+        <p class="notice notice-warn">
+          Bis zum nächsten Veröffentlichen kennt das Dashboard nur, welche Einträge bearbeitet wurden, nicht welche Felder. Ab dann siehst du hier jede Änderung genau.
+        </p>
+      )
+    }
+
+    {live.length === 0 && changelog.unnamedDeletions === 0 && <p class="muted">Keine offenen Änderungen auf der Website.</p>}
+
+    {
+      live.map((group) => (
+        <section class="group">
+          <h3>{group.label}</h3>
+          <ul>
+            {group.items.map((entry) => (
+              <li>
+                <span class:list={['kind', KIND[entry.kind].cls]}>{KIND[entry.kind].label}</span>
+                <div class="entry">
+                  {entry.href ? <a href={entry.href}>{entry.title}</a> : <span class="deleted-title">{entry.title}</span>}
+                  {entry.context && <span class="muted"> · {entry.context}</span>}
+                  {entry.fields.length > 0 && <p class="fields">{entry.fields.join(', ')}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    {
+      changelog.unnamedDeletions > 0 && (
+        <p class="muted">
+          Außerdem {changelog.unnamedDeletions === 1 ? 'ein gelöschter Eintrag' : `${changelog.unnamedDeletions} gelöschte Einträge`} ohne Details (gelöscht, bevor das Änderungsprotokoll existierte).
+        </p>
+      )
+    }
+
+    {
+      drafts.length > 0 && (
+        <details class="drafts">
+          <summary>
+            {drafts.length === 1 ? '1 Änderung' : `${drafts.length} Änderungen`} an Entwürfen – nicht auf der Website
+          </summary>
+          <ul>
+            {drafts.map((entry) => (
+              <li>
+                <span class:list={['kind', KIND[entry.kind].cls]}>{KIND[entry.kind].label}</span>
+                <div class="entry">
+                  <span class="muted">{ENTITIES[entry.entity].singular}: </span>
+                  {entry.href ? <a href={entry.href}>{entry.title}</a> : <span class="deleted-title">{entry.title}</span>}
+                  {entry.fields.length > 0 && <p class="fields">{entry.fields.join(', ')}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )
+    }
+  </div>
+
+  <footer class="changes-foot">
+    <button type="button" class="btn" data-close-dialog>Schließen</button>
+    <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
+      <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
+    </form>
+  </footer>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('#changes-dialog')!;
+  document.querySelectorAll('[data-open-changes]').forEach((b) => b.addEventListener('click', () => dialog.showModal()));
+  dialog.querySelectorAll('[data-close-dialog]').forEach((b) => b.addEventListener('click', () => dialog.close()));
+  // Click on the dimmed backdrop closes the overlay.
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+</script>
+
+<style>
+  .changes {
+    width: min(640px, calc(100vw - 32px));
+    max-height: min(80vh, 760px);
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  }
+  .changes[open] { display: flex; flex-direction: column; }
+  .changes::backdrop { background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); }
+  .changes-head, .changes-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px; }
+  .changes-head { border-bottom: 1px solid var(--border); }
+  .changes-head h2 { margin: 0 0 4px; font-size: 20px; }
+  .changes-head p { margin: 0; font-size: 13px; }
+  .changes-foot { border-top: 1px solid var(--border); justify-content: flex-end; align-items: center; }
+  .changes-foot form { margin: 0; }
+  .close { border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .close:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
+  .changes-body { overflow-y: auto; padding: 16px 24px 24px; display: grid; gap: 20px; }
+  .changes-body .notice { margin: 0; }
+  .group h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  li:last-child { border-bottom: 0; }
+  .entry { min-width: 0; }
+  .entry a { font-weight: 600; }
+  .deleted-title { font-weight: 600; text-decoration: line-through; color: var(--muted); }
+  .fields { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .kind { flex-shrink: 0; width: 72px; text-align: center; padding: 2px 0; border-radius: 980px; font-size: 11px; font-weight: 600; margin-top: 1px; }
+  .kind-new { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .kind-changed { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .kind-deleted { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+  .drafts summary { cursor: pointer; color: var(--muted); font-weight: 500; }
+  .drafts ul { margin-top: 8px; }
+</style>
