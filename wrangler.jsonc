@@ -1,0 +1,13 @@
+// Cloudflare Workers deploy for the public website (static files only, no Worker code).
+// Cloudflare builds with `npm run build` in the repo root, then runs `npx wrangler deploy`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Must match the project name in Cloudflare (Workers & Pages).
+  "name": "website-v2",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site/dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

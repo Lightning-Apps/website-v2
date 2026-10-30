@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout lang="de" title="Seite nicht gefunden">
+  <section class="section">
+    <div class="container center not-found">
+      <p class="eyebrow">404</p>
+      <h1 class="headline-l">Diese Seite gibt es nicht.</h1>
+      <p class="lead">This page doesn’t exist.</p>
+      <div class="links">
+        <a class="chevron-link" href="/de/">Zur Startseite</a>
+        <a class="chevron-link" href="/en/">Go to homepage</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .not-found { display: grid; gap: 16px; justify-items: center; padding-block: 40px; }
+</style>

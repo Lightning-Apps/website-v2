@@ -4,7 +4,7 @@ Zwei Teile in einem Repo:
 
 | Ordner | Was | Läuft wo |
 | --- | --- | --- |
-| `site/` | Öffentliche Website (Astro, komplett statisch, DE/EN) | Cloudflare Pages |
+| `site/` | Öffentliche Website (Astro, komplett statisch, DE/EN) | Cloudflare |
 | `dashboard/` | Redaktions-Dashboard für Apps, Projekte, News | lokal auf deinem Mac oder als Docker-Container im Heimnetz |
 | `supabase/` | Datenbank-Schema (`migrations/`) und Platzhalter-Inhalte (`seed.sql`) | Supabase-Projekt „Game Tracker“ (`dxftytekcnsmpbxxtxdx`) |
 | `shared/` | Gemeinsame Typen und Helfer | – |
@@ -38,7 +38,7 @@ SUPABASE_ANON_KEY=sb_publishable_…   # Supabase → Project Settings → API K
 ```
 SUPABASE_URL=https://dxftytekcnsmpbxxtxdx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=…          # Supabase → Project Settings → API Keys → Secret key
-CF_DEPLOY_HOOK_URL=…                 # Cloudflare → Pages-Projekt → Settings → Builds → Deploy hooks
+CF_DEPLOY_HOOK_URL=…                 # Cloudflare → Projekt → Settings → Build → Deploy hooks
 SITE_URL=https://deine-domain.de
 ```
 
@@ -50,16 +50,17 @@ npm run dashboard   # Dashboard auf http://127.0.0.1:4322
 npm run build       # Website bauen (Ausgabe: site/dist)
 ```
 
-## Cloudflare Pages
+## Cloudflare
 
-Pages-Projekt mit dem Git-Repo verbinden:
+Das Projekt läuft als Cloudflare-Worker, der nur die statischen Dateien aus `site/dist` ausliefert (Konfiguration: `wrangler.jsonc`, der Projektname dort muss zum Namen in Cloudflare passen).
 
-- **Framework preset:** Astro
-- **Root directory:** `site`
+Projekt-Einstellungen (Workers & Pages → Projekt → Settings → Build):
+
+- **Root directory:** `/` (Repo-Hauptordner – nicht `site`, weil die Website den Workspace `shared` braucht)
 - **Build command:** `npm run build`
-- **Build output directory:** `dist`
-- **Environment variables:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SITE_URL` (deine Domain), `NODE_VERSION=26`
-- Danach unter *Settings → Builds → Deploy hooks* einen Hook anlegen und die URL in `dashboard/.env` eintragen.
+- **Deploy command:** `npx wrangler deploy`
+- **Build-Variablen** (Settings → Build → Variables and secrets): `SUPABASE_URL`, `SUPABASE_ANON_KEY` (Publishable Key), `SITE_URL` (deine Domain), `NODE_VERSION=26`. Der Secret Key gehört **nicht** zu Cloudflare.
+- Danach einen Deploy Hook anlegen und die URL als `CF_DEPLOY_HOOK_URL` ins Dashboard eintragen.
 
 ## Dashboard auf dem Homeserver (Docker)
 
