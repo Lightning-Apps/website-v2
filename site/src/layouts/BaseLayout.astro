@@ -12,7 +12,7 @@ interface Props {
 }
 const { lang, title, description, image } = Astro.props;
 const t = useTranslations(lang);
-const fullTitle = title ? `${title} – lightning apps` : 'lightning apps';
+const fullTitle = title ? `${title} – Lightning Apps` : 'Lightning Apps';
 const desc = description ?? t('home.studioText');
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -27,12 +27,12 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <link rel="canonical" href={canonical} />
     {LOCALES.map((l) => <link rel="alternate" hreflang={l} href={new URL(switchLocalePath(Astro.url.pathname, l), Astro.site)} />)}
     <link rel="alternate" hreflang="x-default" href={new URL(switchLocalePath(Astro.url.pathname, 'de'), Astro.site)} />
-    <link rel="alternate" type="application/rss+xml" title="lightning apps Newsroom" href={localizePath(lang, 'rss.xml').replace(/\/$/, '')} />
+    <link rel="alternate" type="application/rss+xml" title="Lightning Apps Newsroom" href={localizePath(lang, 'rss.xml').replace(/\/$/, '')} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="lightning apps" />
+    <meta property="og:site_name" content="Lightning Apps" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={desc} />
     <meta property="og:url" content={canonical} />

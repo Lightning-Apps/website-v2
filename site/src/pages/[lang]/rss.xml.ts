@@ -10,8 +10,8 @@ export async function GET(context: APIContext) {
   const lang = context.params.lang as Locale;
   const news = await getNews();
   return rss({
-    title: 'lightning apps Newsroom',
-    description: lang === 'de' ? 'Neuigkeiten von lightning apps' : 'News from lightning apps',
+    title: 'Lightning Apps Newsroom',
+    description: lang === 'de' ? 'Neuigkeiten von Lightning Apps' : 'News from Lightning Apps',
     site: context.site!,
     customData: `<language>${lang}</language>`,
     items: news.map((item) => ({

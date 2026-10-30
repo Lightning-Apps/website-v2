@@ -53,7 +53,7 @@ insert into public.news (slug, published_at, category, title_de, title_en, summa
 values
   ('willkommen-neue-website', '2026-10-30', 'studio',
    'Willkommen auf der neuen Website', 'Welcome to the new website',
-   'lightning apps hat ein neues Zuhause im Netz.', 'lightning apps has a new home on the web.',
+   'Lightning Apps hat ein neues Zuhause im Netz.', 'Lightning Apps has a new home on the web.',
    E'Platzhalter-Beitrag. **Markdown** funktioniert hier.\n\n- Punkt eins\n- Punkt zwei',
    E'Placeholder post. **Markdown** works here.\n\n- Point one\n- Point two',
    null, true),

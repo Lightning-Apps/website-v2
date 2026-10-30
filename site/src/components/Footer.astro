@@ -20,14 +20,14 @@ const year = new Date().getFullYear();
         <h2 class="footer-heading">{t('nav.apps')}</h2>
         <ul>
           {apps.map((app) => <li><a href={localizePath(lang, `apps/${app.slug}`)}>{app.name}</a></li>)}
-          {showArchive && <li><a href={localizePath(lang, 'archive')}>{t('nav.archive')}</a></li>}
         </ul>
       </div>
       <div>
-        <h2 class="footer-heading">lightning apps</h2>
+        <h2 class="footer-heading">Lightning Apps</h2>
         <ul>
           <li><a href={`${localizePath(lang)}#projects`}>{t('nav.projects')}</a></li>
           <li><a href={localizePath(lang, 'newsroom')}>{t('nav.newsroom')}</a></li>
+          {showArchive && <li><a href={localizePath(lang, 'archive')}>{t('nav.archive')}</a></li>}
           <li><a href={localizePath(lang, 'about')}>{t('nav.about')}</a></li>
           <li><a href={localizePath(lang, 'rss.xml').replace(/\/$/, '')}>{t('footer.rss')}</a></li>
         </ul>
@@ -48,7 +48,7 @@ const year = new Date().getFullYear();
       </div>
     </div>
     <div class="footer-bottom">
-      <span class="footer-brand"><Logo size={14} /> © {year} lightning apps. {t('footer.rights')}</span>
+      <span class="footer-brand"><Logo size={14} /> © {year} Lightning Apps. {t('footer.rights')}</span>
       <span class="footer-legal">
         <a href={localizePath(lang, 'imprint')}>{t('footer.imprint')}</a>
         <a href={localizePath(lang, 'privacy')}>{t('footer.privacy')}</a>

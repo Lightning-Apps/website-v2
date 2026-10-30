@@ -1,4 +1,4 @@
-# lightning apps dashboard on the home server.
+# Lightning Apps dashboard on the home server.
 #   1. cp dashboard/.env.example dashboard/.env.server and fill it in (see README)
 #   2. docker compose -f compose.dashboard.yml up -d --build
 services:

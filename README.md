@@ -1,4 +1,4 @@
-# lightning apps – Website v2
+# Lightning Apps – Website v2
 
 Zwei Teile in einem Repo:
 
