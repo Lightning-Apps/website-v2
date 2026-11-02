@@ -5,6 +5,9 @@ import Sortable from '../../components/Sortable.astro';
 import { configError, db, mediaPublicUrl } from '../../lib/server';
 import { byHomeOrder } from '@lightning/shared';
 
+/** The "Our Apps" menu stays compact; "View all apps" leads to the rest. */
+const NAV_LIMIT = 4;
+
 const setupError = configError();
 let error: string | null = setupError;
 const notice = { saved: 'Gespeichert.', reset: 'Die Startseite folgt wieder der Reihenfolge der Apps.' }[Astro.url.searchParams.get('done') ?? ''];
@@ -16,11 +19,12 @@ type HomeApp = {
   published: boolean;
   featured: boolean;
   show_on_home: boolean;
+  show_in_nav: boolean;
   sort_order: number;
   home_sort_order: number | null;
 };
 const load = async () =>
-  ((await db().from('apps').select('id, name, icon_path, published, featured, show_on_home, sort_order, home_sort_order').eq('archived', false)).data ??
+  ((await db().from('apps').select('id, name, icon_path, published, featured, show_on_home, show_in_nav, sort_order, home_sort_order').eq('archived', false)).data ??
     []) as HomeApp[];
 
 if (!setupError && Astro.request.method === 'POST') {
@@ -29,7 +33,9 @@ if (!setupError && Astro.request.method === 'POST') {
   const featuredId = String(form.get('featured') ?? '');
   const shown = new Set(form.getAll('show').map(String));
   const order = form.getAll('order').map(String);
+  const inNav = new Set(form.getAll('nav').map(String));
   try {
+    if (inNav.size > NAV_LIMIT) throw new Error(`In der Navigation sind höchstens ${NAV_LIMIT} Apps möglich.`);
     const apps = await load();
     const appOrder = [...apps].sort((a, b) => a.sort_order - b.sort_order).map((a) => a.id);
     // An own order is only stored once it differs from the apps list (or one exists already).
@@ -41,7 +47,12 @@ if (!setupError && Astro.request.method === 'POST') {
         app,
         values: reset
           ? { home_sort_order: null }
-          : { featured: app.id === featuredId, show_on_home: shown.has(app.id), home_sort_order: position(app.id) },
+          : {
+              featured: app.id === featuredId,
+              show_on_home: shown.has(app.id),
+              home_sort_order: position(app.id),
+              show_in_nav: inNav.has(app.id),
+            },
       }))
       .filter(({ app, values }) => Object.entries(values).some(([k, v]) => app[k as keyof HomeApp] !== v));
     // Unfeature first: at most one app may be featured at any time.
@@ -59,11 +70,13 @@ if (!setupError && Astro.request.method === 'POST') {
 const apps = setupError ? [] : (await load()).sort(byHomeOrder);
 const featured = apps.find((a) => a.featured);
 const hasOwnOrder = apps.some((a) => a.home_sort_order !== null);
+const navApps = [...apps].sort((a, b) => a.sort_order - b.sort_order);
+const navCount = apps.filter((a) => a.show_in_nav).length;
 ---
 
-<DashboardLayout title="Startseite">
+<DashboardLayout title="Startseite & Navigation">
   <div class="page-head">
-    <h1>Startseite</h1>
+    <h1>Startseite & Navigation</h1>
   </div>
 
   {notice && <p class="notice notice-ok">{notice} Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
@@ -148,6 +161,38 @@ const hasOwnOrder = apps.some((a) => a.home_sort_order !== null);
           )}
         </section>
 
+        <section class="panel" data-nav-limit={NAV_LIMIT}>
+          <div class="list-head">
+            <h2>Apps in der Navigation</h2>
+            <span class="muted order-state" data-nav-count>{navCount} von {NAV_LIMIT}</span>
+          </div>
+          <p class="muted hint">
+            Diese Apps stehen im Menü „Our Apps“, in der Reihenfolge wie unter <a href="/apps/">Apps</a>. Alle weiteren erreicht man dort über „Alle Apps
+            ansehen“. Ist keine ausgewählt, zeigt das Menü die ersten {NAV_LIMIT}.
+          </p>
+          <table>
+            <tbody>
+              {navApps.map((app) => {
+                const icon = mediaPublicUrl(app.icon_path);
+                return (
+                  <tr>
+                    <td class="icon-cell">{icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}</td>
+                    <td>
+                      <span class="home-name">
+                        <strong>{app.name}</strong>
+                        {!app.published && <span class="pill pill-draft">Entwurf</span>}
+                      </span>
+                    </td>
+                    <td class="switch-cell">
+                      <input class="switch" type="checkbox" name="nav" value={app.id} checked={app.show_in_nav} aria-label={`${app.name} in der Navigation zeigen`} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+
         <div>
           <button class="btn btn-primary" type="submit">Speichern</button>
         </div>
@@ -155,6 +200,23 @@ const hasOwnOrder = apps.some((a) => a.home_sort_order !== null);
     )
   }
 </DashboardLayout>
+
+<script>
+  // At most NAV_LIMIT apps: once reached, the remaining switches are disabled.
+  const panel = document.querySelector<HTMLElement>('[data-nav-limit]');
+  if (panel) {
+    const limit = Number(panel.dataset.navLimit);
+    const boxes = [...panel.querySelectorAll<HTMLInputElement>('input[name="nav"]')];
+    const count = panel.querySelector('[data-nav-count]')!;
+    const update = () => {
+      const checked = boxes.filter((b) => b.checked).length;
+      count.textContent = `${checked} von ${limit}`;
+      boxes.forEach((b) => (b.disabled = !b.checked && checked >= limit));
+    };
+    boxes.forEach((b) => b.addEventListener('change', update));
+    update();
+  }
+</script>
 
 <style>
   .hint { margin: -6px 0 14px; }
@@ -170,5 +232,6 @@ const hasOwnOrder = apps.some((a) => a.home_sort_order !== null);
   .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); transition: transform 0.2s; }
   .switch:checked { background: var(--ok); }
   .switch:checked::after { transform: translateX(16px); }
+  .switch:disabled { opacity: 0.4; cursor: not-allowed; }
   .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>

@@ -1,6 +1,98 @@
 ---
-import AppChildIndex from '../../components/AppChildIndex.astro';
+// Price overview: every app with its pricing model and plans.
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import ChildList from '../../components/ChildList.astro';
+import Sortable from '../../components/Sortable.astro';
 import { ENTITIES } from '../../lib/entities';
+import { pricingDetails, pricingModel } from '../../lib/pricing';
+import { configError, db, mediaPublicUrl } from '../../lib/server';
+
+const entity = ENTITIES.plans;
+const setupError = configError();
+const deleted = Astro.url.searchParams.get('deleted');
+
+type PriceApp = {
+  id: string;
+  name: string;
+  icon_path: string | null;
+  published: boolean;
+  archived: boolean;
+  price_eur: number | null;
+  has_iap: boolean;
+  trial_days: number | null;
+  family_sharing: boolean;
+};
+let apps: PriceApp[] = [];
+let plans: (Record<string, any> & { app_id: string; period: string; published: boolean })[] = [];
+let loadError: string | null = null;
+if (!setupError) {
+  const [appsRes, plansRes] = await Promise.all([
+    db().from('apps').select('id, name, icon_path, published, archived, price_eur, has_iap, trial_days, family_sharing').order('sort_order'),
+    db().from(entity.table).select('*').order('sort_order'),
+  ]);
+  // Archived apps can't be bought anymore: they go last.
+  apps = ((appsRes.data ?? []) as PriceApp[]).sort((a, b) => Number(a.archived) - Number(b.archived));
+  plans = plansRes.data ?? [];
+  loadError = appsRes.error?.message ?? plansRes.error?.message ?? null;
+}
+const back = '/plans/';
+const backParam = encodeURIComponent(back);
 ---
 
-<AppChildIndex entity={ENTITIES.plans} />
+<DashboardLayout title="Preise">
+  <div class="page-head">
+    <h1>Preise</h1>
+  </div>
+
+  {setupError && <p class="notice notice-error">{setupError}</p>}
+  {loadError && <p class="notice notice-error">Fehler beim Laden: {loadError}</p>}
+  {deleted && <p class="notice notice-ok">„{deleted}“ wurde gelöscht.</p>}
+  {apps.length === 0 && !setupError && <p class="panel muted">Lege zuerst eine App an.</p>}
+
+  {plans.length > 1 && <Sortable />}
+
+  <div class="stack">
+    {
+      apps.map((app) => {
+        const icon = mediaPublicUrl(app.icon_path);
+        const items = plans.filter((p) => p.app_id === app.id);
+        const details = pricingDetails(app, items);
+        return (
+          <section class="panel group" id={`app-${app.id}`}>
+            <div class="group-head">
+              <div class="group-title">
+                {icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}
+                <div>
+                  <h2>
+                    <a href={`/plans/app/${app.id}`}>{app.name}</a>
+                    {!app.published && <span class="pill pill-draft">App ist Entwurf</span>}
+                    {app.archived && <span class="pill pill-draft">Archiviert</span>}
+                  </h2>
+                  <p class="model">
+                    <strong>{pricingModel(app, items)}</strong>
+                    {details.length > 0 && <span class="muted"> · {details.join(' · ')}</span>}
+                  </p>
+                </div>
+              </div>
+              <div class="group-actions">
+                <a class="btn" href={`/plans/app/${app.id}`}>Preis bearbeiten</a>
+                <a class="btn" href={`/${entity.key}/new?app_id=${app.id}&back=${backParam}`}>+ {entity.singular}</a>
+              </div>
+            </div>
+            {items.length > 0 && <ChildList entity={entity} appId={app.id} rows={items} back={back} />}
+          </section>
+        );
+      })
+    }
+  </div>
+</DashboardLayout>
+
+<style>
+  .group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .group:has(table) .group-head { margin-bottom: 8px; }
+  .group-title { display: flex; align-items: center; gap: 12px; }
+  .group-title h2 { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .group-title h2 a { color: var(--text); }
+  .model { margin: 2px 0 0; font-size: 13px; }
+  .group-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>

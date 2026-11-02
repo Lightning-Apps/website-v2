@@ -54,6 +54,8 @@ export interface Entity {
   fields: Field[];
   /** Shown as a sub-item of this entity in the sidebar. */
   parent?: EntityKey;
+  /** Sidebar label, when it differs from `label`. */
+  navLabel?: string;
 }
 
 export type EntityKey = 'news' | 'apps' | 'projects' | 'features' | 'plans';
@@ -156,9 +158,11 @@ export const ENTITIES: Record<EntityKey, Entity> = {
       { name: 'featured', label: 'Auf der Startseite präsentiert', type: 'checkbox', formHidden: true },
       { name: 'show_on_home', label: 'Auf der Startseite gezeigt', type: 'checkbox', formHidden: true },
       { name: 'home_sort_order', label: 'Reihenfolge auf der Startseite', type: 'count', formHidden: true },
+      { name: 'show_in_nav', label: 'In der Navigation', type: 'checkbox', formHidden: true },
       sortOrder,
       published,
-      ...pricingFields,
+      // Edited on the pricing page (PRICING below).
+      ...pricingFields.map((f) => ({ ...f, formHidden: true })),
       ...testflightFields,
       ...archiveFields,
     ],
@@ -185,6 +189,7 @@ export const ENTITIES: Record<EntityKey, Entity> = {
     key: 'plans',
     table: 'app_plans',
     label: 'Preispläne',
+    navLabel: 'Preise',
     singular: 'Preisplan',
     titleField: 'name_de',
     orderBy: { column: 'sort_order', ascending: true },
@@ -225,11 +230,12 @@ export const ENTITIES: Record<EntityKey, Entity> = {
   },
 };
 
+/** An app's price settings, edited on /plans/app/<id> together with its plans. */
+export const PRICING: Entity = { ...ENTITIES.apps, fields: pricingFields.filter((f) => f.type !== 'section') };
+
 export function getEntity(key: string | undefined): Entity | undefined {
   return key && key in ENTITIES ? ENTITIES[key as EntityKey] : undefined;
 }
 
 export { PLATFORM_STATES };
 
-/** Entities that belong to an app (features, plans). */
-export const APP_CHILDREN = Object.values(ENTITIES).filter((e) => e.parent === 'apps');

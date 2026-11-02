@@ -10,13 +10,13 @@ const path = Astro.url.pathname;
 const entities = Object.values(ENTITIES);
 const nav = [
   { href: '/', label: 'Übersicht', children: [] as { href: string; label: string }[] },
-  { href: '/startseite/', label: 'Startseite', children: [] },
+  { href: '/startseite/', label: 'Startseite & Navigation', children: [] },
   ...entities
     .filter((e) => !e.parent)
     .map((e) => ({
       href: `/${e.key}/`,
-      label: e.label,
-      children: entities.filter((c) => c.parent === e.key).map((c) => ({ href: `/${c.key}/`, label: c.label })),
+      label: e.navLabel ?? e.label,
+      children: entities.filter((c) => c.parent === e.key).map((c) => ({ href: `/${c.key}/`, label: c.navLabel ?? c.label })),
     })),
 ];
 const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));

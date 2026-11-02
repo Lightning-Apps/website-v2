@@ -1,7 +1,7 @@
 ---
 import Logo from './Logo.astro';
 import AppIcon from './AppIcon.astro';
-import { betaUrl, getApps, hasArchive } from '../lib/content';
+import { betaUrl, getNavApps, hasArchive } from '../lib/content';
 import { LOCALES, localizePath, switchLocalePath, useTranslations, type Locale } from '../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -10,7 +10,7 @@ interface Props {
 }
 const { lang } = Astro.props;
 const t = useTranslations(lang);
-const apps = await getApps();
+const apps = await getNavApps();
 const showArchive = await hasArchive();
 const path = Astro.url.pathname;
 const isActive = (section: string) => path.startsWith(localizePath(lang, section));

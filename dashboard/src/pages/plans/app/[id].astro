@@ -1,0 +1,78 @@
+---
+// One app's prices: purchase price and options (stored on the app) plus its plans.
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import EntityForm from '../../../components/EntityForm.astro';
+import ChildList from '../../../components/ChildList.astro';
+import Sortable from '../../../components/Sortable.astro';
+import { ENTITIES, PRICING } from '../../../lib/entities';
+import { pricingModel } from '../../../lib/pricing';
+import { configError, db, formToRow } from '../../../lib/server';
+
+const id = Astro.params.id!;
+const setupError = configError();
+let error: string | null = setupError;
+let saved = Astro.url.searchParams.get('saved') === '1';
+let row: Record<string, any> = {};
+
+if (!setupError && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    const { error: saveError } = await db().from('apps').update(await formToRow(PRICING, form)).eq('id', id);
+    if (saveError) throw new Error(saveError.message);
+    return Astro.redirect(`/plans/app/${id}?saved=1`, 303);
+  } catch (e) {
+    error = (e as Error).message;
+    row = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string'));
+    for (const f of PRICING.fields) if (f.type === 'checkbox') row[f.name] = form.get(f.name) === 'on';
+    saved = false;
+  }
+}
+
+const { data: app } = setupError ? { data: null } : await db().from('apps').select('*').eq('id', id).maybeSingle();
+if (!setupError && !app) return new Response('Not found', { status: 404 });
+if (!error) row = app ?? {};
+const plans = setupError ? [] : ((await db().from('app_plans').select('*').eq('app_id', id).order('sort_order')).data ?? []);
+const back = `/plans/app/${id}`;
+---
+
+<DashboardLayout title={`Preise – ${app?.name ?? ''}`}>
+  <p class="crumbs">
+    <a href={`/plans/#app-${id}`}>← Preise</a>
+    {app && <a class="crumb-alt" href={`/apps/${id}`}>App „{app.name}“ öffnen</a>}
+  </p>
+  <div class="page-head">
+    <h1>Preise: {app?.name}</h1>
+    {app && <span class="pill pill-published">{pricingModel(app, plans)}</span>}
+  </div>
+
+  {saved && <p class="notice notice-ok">Gespeichert. Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
+  {error && <p class="notice notice-error">{error}</p>}
+
+  {
+    !setupError && (
+      <>
+        <p class="muted intro">Preise in Euro inkl. MwSt., wie im App Store. Ohne Kaufpreis gilt die App als kostenlos.</p>
+        <EntityForm entity={PRICING} row={row} apps={[]} isNew={false} deletable={false} />
+
+        <section class="panel plans">
+          <div class="page-head">
+            <h2>Abos & In-App-Freischaltungen</h2>
+            <a class="btn" href={`/plans/new?app_id=${id}&back=${encodeURIComponent(back)}`}>+ {ENTITIES.plans.singular} hinzufügen</a>
+          </div>
+          {plans.length > 1 && <Sortable />}
+          <ChildList entity={ENTITIES.plans} appId={id} rows={plans} back={back} />
+        </section>
+      </>
+    )
+  }
+</DashboardLayout>
+
+<style>
+  .crumbs { margin: 0 0 8px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .crumb-alt { color: var(--muted); }
+  .page-head { justify-content: flex-start; }
+  .intro { margin: -12px 0 16px; }
+  .plans { margin-top: 24px; }
+  .plans .page-head { justify-content: space-between; margin-bottom: 8px; }
+  .plans h2 { margin: 0; }
+</style>

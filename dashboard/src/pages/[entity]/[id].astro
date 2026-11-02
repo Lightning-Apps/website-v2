@@ -3,7 +3,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import EntityForm from '../../components/EntityForm.astro';
 import ChildList from '../../components/ChildList.astro';
 import Sortable from '../../components/Sortable.astro';
-import { APP_CHILDREN, getEntity } from '../../lib/entities';
+import { ENTITIES, getEntity } from '../../lib/entities';
+import { pricingDetails, pricingModel } from '../../lib/pricing';
 import { configError, db, formToRow } from '../../lib/server';
 
 const entity = getEntity(Astro.params.entity);
@@ -19,7 +20,9 @@ let saved = Astro.url.searchParams.get('saved') === '1';
 const backParam = Astro.url.searchParams.get('back');
 const back = backParam && backParam.startsWith('/') && !backParam.startsWith('//') ? backParam : null;
 const isChild = entity.parent === 'apps';
-const backTo = isChild ? (appId: string) => back ?? `/apps/${appId}` : () => `/${entity.key}/`;
+// Plans live on their app's price page, features on the app page.
+const parentPage = (appId: string) => (entity.key === 'plans' ? `/plans/app/${appId}` : `/apps/${appId}`);
+const backTo = isChild ? (appId: string) => back ?? parentPage(appId) : () => `/${entity.key}/`;
 const keepBack = back ? `&back=${encodeURIComponent(back)}` : '';
 
 if (!setupError && Astro.request.method === 'POST') {
@@ -69,16 +72,12 @@ if (isNew && Object.keys(row).length === 0) {
 }
 
 const { data: apps } = setupError ? { data: [] } : await db().from('apps').select('id, name').order('sort_order');
-// On an app's page: its features and plans.
-const children =
-  entity.key === 'apps' && !isNew && !setupError
-    ? await Promise.all(
-        APP_CHILDREN.map(async (child) => ({
-          entity: child,
-          rows: (await db().from(child.table).select('*').eq('app_id', id).order('sort_order')).data ?? [],
-        })),
-      )
-    : [];
+// On an app's page: its features, and a summary of its prices (edited on the price page).
+const onAppPage = entity.key === 'apps' && !isNew && !setupError;
+const children = onAppPage
+  ? [{ entity: ENTITIES.features, rows: (await db().from('app_features').select('*').eq('app_id', id).order('sort_order')).data ?? [] }]
+  : [];
+const appPlans = onAppPage ? ((await db().from('app_plans').select('period, published').eq('app_id', id)).data ?? []) : [];
 
 const title = isNew ? `${entity.singular} anlegen` : String(row[entity.titleField] || entity.singular);
 const parentApp = isChild ? apps?.find((a) => a.id === row.app_id) : undefined;
@@ -89,7 +88,9 @@ const parentApp = isChild ? apps?.find((a) => a.id === row.app_id) : undefined;
     {
       isChild ? (
         <>
-          <a href={back ?? (parentApp ? `/apps/${parentApp.id}` : `/${entity.key}/`)}>← {back || !parentApp ? entity.label : parentApp.name}</a>
+          <a href={back ?? (parentApp ? parentPage(parentApp.id) : `/${entity.key}/`)}>
+            ← {back || !parentApp ? entity.navLabel ?? entity.label : entity.key === 'plans' ? `Preise: ${parentApp.name}` : parentApp.name}
+          </a>
           {parentApp && (back ? <a class="crumb-alt" href={`/apps/${parentApp.id}`}>App „{parentApp.name}“ öffnen</a> : <a class="crumb-alt" href={`/${entity.key}/`}>Alle {entity.label}</a>)}
         </>
       ) : (
@@ -106,12 +107,27 @@ const parentApp = isChild ? apps?.find((a) => a.id === row.app_id) : undefined;
 
   {!setupError && <EntityForm entity={entity} row={row} apps={apps ?? []} isNew={isNew} />}
 
+  {
+    onAppPage && (
+      <section class="panel pricing-summary">
+        <div>
+          <h2>Preise</h2>
+          <p>
+            <strong>{pricingModel(row as any, appPlans)}</strong>
+            {pricingDetails(row as any, appPlans).map((d) => <span class="muted"> · {d}</span>)}
+          </p>
+        </div>
+        <a class="btn" href={`/plans/app/${id}`}>Preise bearbeiten</a>
+      </section>
+    )
+  }
+
   {children.some((c) => c.rows.length > 1) && <div class="sort-wrap"><Sortable /></div>}
   {
     children.map(({ entity: child, rows }) => (
       <section class="panel children">
         <div class="page-head">
-          <h2>{child.key === 'features' ? 'Funktionen & Screenshots' : child.label}</h2>
+          <h2>Funktionen & Screenshots</h2>
           <a class="btn" href={`/${child.key}/new?app_id=${id}`}>+ {child.singular} hinzufügen</a>
         </div>
         <ChildList entity={child} appId={id} rows={rows} />
@@ -124,6 +140,9 @@ const parentApp = isChild ? apps?.find((a) => a.id === row.app_id) : undefined;
   .crumbs { margin: 0 0 8px; display: flex; gap: 16px; flex-wrap: wrap; }
   .crumb-alt { color: var(--muted); }
   .children { margin-top: 24px; }
+  .pricing-summary { margin-top: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .pricing-summary h2 { margin: 0 0 4px; }
+  .pricing-summary p { margin: 0; }
   .sort-wrap { margin-top: 24px; }
   .children .page-head { margin-bottom: 8px; }
 </style>

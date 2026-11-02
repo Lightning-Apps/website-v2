@@ -8,8 +8,10 @@ interface Props {
   row: Record<string, any>;
   apps: { id: string; name: string }[];
   isNew: boolean;
+  /** Offer the delete button (off when the form edits only part of a row). */
+  deletable?: boolean;
 }
-const { entity, row, apps, isNew } = Astro.props;
+const { entity, row, apps, isNew, deletable = true } = Astro.props;
 const LANG_LABEL = { de: 'Deutsch', en: 'English' } as const;
 const hasI18n = entity.fields.some((f) => f.i18n);
 
@@ -149,7 +151,7 @@ const platforms = (row.platforms ?? []) as Platform[];
     <!-- The clicked button decides the action; Enter in a field uses this first button. -->
     <button class="btn btn-primary" type="submit" name="_action" value="save">{isNew ? `${entity.singular} anlegen` : 'Speichern'}</button>
     {
-      !isNew && (
+      !isNew && deletable && (
         <button class="btn btn-danger" type="submit" name="_action" value="delete" formnovalidate data-confirm={`${entity.singular} wirklich endgültig löschen?`}>
           Löschen
         </button>

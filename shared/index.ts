@@ -66,6 +66,8 @@ export interface AppRow extends Row, Archivable {
   show_on_home: boolean;
   /** Own position among the homepage tiles; null = the order of the apps list. */
   home_sort_order: number | null;
+  /** Listed in the "Our Apps" menu (at most four). */
+  show_in_nav: boolean;
   /** Purchase price in euros; null = free download. */
   price_eur: number | null;
   has_iap: boolean;

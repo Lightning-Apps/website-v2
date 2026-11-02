@@ -91,6 +91,7 @@ const apps = defineCollection({
     featured: z.boolean(),
     show_on_home: z.boolean().default(true),
     home_sort_order: z.number().nullable().default(null),
+    show_in_nav: z.boolean().default(true),
     // Pricing (defaults for releases from before pricing existed)
     price_eur: z.number().nullable().default(null),
     has_iap: z.boolean().default(false),

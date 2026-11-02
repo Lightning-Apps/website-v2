@@ -20,6 +20,13 @@ export async function getApps(): Promise<App[]> {
   return (await getAllApps()).filter((a) => !a.archived);
 }
 
+/** Apps in the "Our Apps" menu: the ones picked in the dashboard (at most four), or the first four. */
+export async function getNavApps(): Promise<App[]> {
+  const apps = await getApps();
+  const picked = apps.filter((a) => a.show_in_nav);
+  return (picked.length > 0 ? picked : apps).slice(0, 4);
+}
+
 export async function getArchivedApps(): Promise<App[]> {
   return (await getAllApps()).filter((a) => a.archived);
 }
