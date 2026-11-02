@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { localizePath } from '../i18n/ui';
 ---
 
 <BaseLayout lang="de" title="Seite nicht gefunden">
@@ -9,8 +10,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <h1 class="headline-l">Diese Seite gibt es nicht.</h1>
       <p class="lead">This page doesn’t exist.</p>
       <div class="links">
-        <a class="chevron-link" href="/de/">Zur Startseite</a>
-        <a class="chevron-link" href="/en/">Go to homepage</a>
+        <a class="chevron-link" href={localizePath('de')}>Zur Startseite</a>
+        <a class="chevron-link" href={localizePath('en')}>Go to homepage</a>
       </div>
     </div>
   </section>

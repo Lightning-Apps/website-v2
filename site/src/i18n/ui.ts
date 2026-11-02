@@ -81,7 +81,8 @@ const ui = {
     'footer.rights': 'Alle Rechte vorbehalten.',
     'imprint.title': 'Impressum',
     'privacy.title': 'Datenschutzerklärung',
-    'legal.placeholder': 'Platzhalter: Hier kommen die rechtlich erforderlichen Angaben hin.',
+    'legal.updated': 'Stand',
+    'legal.germanBinding': '',
     'skip': 'Zum Inhalt springen',
   },
   en: {
@@ -160,7 +161,8 @@ const ui = {
     'footer.rights': 'All rights reserved.',
     'imprint.title': 'Imprint',
     'privacy.title': 'Privacy Policy',
-    'legal.placeholder': 'Placeholder: The legally required information goes here.',
+    'legal.updated': 'Last updated',
+    'legal.germanBinding': 'This is a translation for your convenience. Only the German version is legally binding.',
     'skip': 'Skip to content',
   },
 } as const satisfies Record<Locale, Record<string, string>>;
@@ -171,15 +173,24 @@ export function useTranslations(lang: Locale) {
   return (key: UiKey): string => ui[lang][key] ?? ui.de[key];
 }
 
+/** Base path of the build without trailing slash: "" on the website, "/preview" in the dashboard preview. */
+export const BASE = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
+/** Path of a file in public/, e.g. withBase('favicon.svg') → '/favicon.svg'. */
+export function withBase(path: string): string {
+  return `${BASE}/${path.replace(/^\/+/, '')}`;
+}
+
 /** Builds a localized path, e.g. localizePath('en', 'apps/aurora') → '/en/apps/aurora/'. */
 export function localizePath(lang: Locale, path = ''): string {
   const clean = path.replace(/^\/+|\/+$/g, '');
-  return clean ? `/${lang}/${clean}/` : `/${lang}/`;
+  return clean ? `${BASE}/${lang}/${clean}/` : `${BASE}/${lang}/`;
 }
 
 /** Same page in another language: swaps the locale prefix of the current path. */
 export function switchLocalePath(pathname: string, target: Locale): string {
-  return pathname.replace(/^\/(de|en)(?=\/|$)/, `/${target}`);
+  const path = BASE && pathname.startsWith(BASE) ? pathname.slice(BASE.length) : pathname;
+  return BASE + path.replace(/^\/(de|en)(?=\/|$)/, `/${target}`);
 }
 
 export function formatDate(date: string, lang: Locale): string {

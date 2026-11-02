@@ -4,16 +4,18 @@ import { ENTITIES } from '../lib/entities';
 import { CF_DEPLOY_HOOK_URL, SITE_URL } from 'astro:env/server';
 import ChangesDialog from '../components/ChangesDialog.astro';
 import { configError, db, formatDateTime } from '../lib/server';
-import { getChangelog, readDeployState, type Changelog } from '../lib/publish';
+import { getChangelog, type Changelog } from '../lib/publish';
 
 const setupError = configError();
-const deployed = Astro.url.searchParams.get('deployed') === '1';
-const deployError = Astro.url.searchParams.get('error');
+const params = Astro.url.searchParams;
+const deployed = params.get('deployed');
+const deployedCount = Number(params.get('count') ?? 0);
+const discarded = params.get('discarded');
+const actionError = params.get('error');
 const hookMissing = !CF_DEPLOY_HOOK_URL;
 const siteUrl = SITE_URL || 'http://localhost:4321';
 
-const { lastDeployAt } = await readDeployState();
-let changelog: Changelog = { entries: [], drafts: [], unnamedDeletions: 0, exact: true };
+let changelog: Changelog = { entries: [], drafts: [], release: null };
 let counts: { label: string; href: string; total: number; drafts: number }[] = [];
 let latestNews: { id: string; title_de: string; published: boolean; published_at: string }[] = [];
 
@@ -36,7 +38,7 @@ if (!setupError) {
 // Only changes that affect the live website count; draft-only edits are listed separately in the overlay.
 const pending = {
   changed: changelog.entries.filter((e) => e.kind !== 'deleted').length,
-  deleted: changelog.entries.filter((e) => e.kind === 'deleted').length + changelog.unnamedDeletions,
+  deleted: changelog.entries.filter((e) => e.kind === 'deleted').length,
 };
 const pendingTotal = pending.changed + pending.deleted;
 const hasDetails = pendingTotal > 0 || changelog.drafts.length > 0;
@@ -54,13 +56,20 @@ const breakdown = [
   </div>
 
   {setupError && <p class="notice notice-error">{setupError} Vorlage: dashboard/.env.example</p>}
-  {deployed && <p class="notice notice-ok">Neuer Build bei Cloudflare gestartet. In 1–2 Minuten ist die Website aktuell.</p>}
-  {deployError && <p class="notice notice-error">Veröffentlichen fehlgeschlagen: {deployError}</p>}
+  {
+    deployed && (
+      <p class="notice notice-ok">
+        Stand #{deployed} veröffentlicht{deployedCount > 0 && ` (${plural(deployedCount, 'Änderung', 'Änderungen')})`}. Cloudflare baut jetzt die Website – den Fortschritt siehst du unten.
+      </p>
+    )
+  }
+  {discarded && <p class="notice notice-ok">„{discarded}“ ist wieder auf dem veröffentlichten Stand.</p>}
+  {actionError && <p class="notice notice-error">{actionError}</p>}
   {hookMissing && <p class="notice notice-warn">CF_DEPLOY_HOOK_URL ist noch nicht gesetzt – „Website veröffentlichen“ funktioniert erst danach.</p>}
 
   <div class="cards">
     <section class="panel publish">
-      <h2>Website</h2>
+      <h2>Offene Änderungen</h2>
       <p class:list={['big', { 'big-pending': pendingTotal > 0 }]}>
         {pendingTotal > 0 ? plural(pendingTotal, 'offene Änderung', 'offene Änderungen') : 'Auf dem neuesten Stand'}
       </p>
@@ -72,22 +81,44 @@ const breakdown = [
         }
       </p>
       <p class="muted small">
-        {lastDeployAt ? `Zuletzt veröffentlicht: ${formatDateTime(lastDeployAt)} Uhr` : 'Noch nie aus dem Dashboard veröffentlicht.'}
+        {changelog.release ? `Zuletzt veröffentlicht: Stand #${changelog.release.id} am ${formatDateTime(changelog.release.created_at)} Uhr` : 'Noch nie veröffentlicht.'}
       </p>
       <div class="publish-actions">
-        <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
-          <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
+        {hasDetails && <button class="btn btn-primary" type="button" data-open-changes>Änderungen ansehen</button>}
+        <form method="post" action="/api/deploy" data-confirm={pendingTotal > 0 ? 'Alle offenen Änderungen veröffentlichen?' : 'Website ohne neue Änderungen neu bauen?'}>
+          <button class:list={['btn', { 'btn-primary': !hasDetails }]} type="submit">{pendingTotal > 0 ? 'Alles veröffentlichen' : 'Neu bauen'}</button>
         </form>
-        {hasDetails && <button class="btn" type="button" data-open-changes>Änderungen ansehen</button>}
       </div>
     </section>
 
+    <section class="panel status" data-status aria-live="polite">
+      <h2>Live-Website</h2>
+      <p class="big status-title"><span class="dot" data-status-dot></span><span data-status-title>Status wird geladen …</span></p>
+      <p data-status-text></p>
+      <p class="muted small" data-status-build></p>
+      <p class="muted small" data-status-hint hidden></p>
+    </section>
+
+    <section class="panel preview" data-preview>
+      <h2>Vorschau</h2>
+      <p class="preview-title" data-preview-title>Website mit allen offenen Änderungen ansehen, ohne zu veröffentlichen.</p>
+      <p class="muted small" data-preview-text></p>
+      <pre class="preview-error" data-preview-error hidden></pre>
+      <form class="preview-actions" data-preview-form>
+        <label class="check-inline"><input type="checkbox" name="drafts" /> Entwürfe einblenden</label>
+        <button class="btn" type="submit" data-preview-button>Vorschau erstellen</button>
+        <a class="btn btn-primary" href="/preview/" target="_blank" data-preview-open hidden>Vorschau öffnen ↗</a>
+      </form>
+    </section>
+  </div>
+
+  <div class="cards stats">
     {
       counts.map((c) => (
         <a class="panel stat" href={c.href}>
           <h2>{c.label}</h2>
           <p class="big">{c.total}</p>
-          <p class="muted">{c.drafts > 0 ? `davon ${c.drafts} Entwurf${c.drafts === 1 ? '' : 'e'}` : 'alle veröffentlicht'}</p>
+          <p class="muted">{c.drafts > 0 ? `davon ${plural(c.drafts, 'Entwurf', 'Entwürfe')}` : 'alle veröffentlicht'}</p>
         </a>
       ))
     }
@@ -114,20 +145,153 @@ const breakdown = [
       </section>
     )
   }
-  {!setupError && <ChangesDialog changelog={changelog} lastDeployAt={lastDeployAt} />}
+  {!setupError && <ChangesDialog changelog={changelog} open={params.get('changes') === 'open'} />}
 </DashboardLayout>
 
+<script>
+  import type { SiteStatus } from '../lib/status';
+  import type { PreviewState } from '../lib/preview';
+
+  const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
+  const time = (iso: string) => new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+  const duration = (from: string, to = new Date().toISOString()) => {
+    const s = Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 1000));
+    return s < 60 ? `${s} s` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} min`;
+  };
+
+  // ---- Build status ----
+  const PHASE = { queued: 'In der Warteschlange', initializing: 'Wird vorbereitet', running: 'Wird gebaut', stopped: '' } as const;
+  const OUTCOME: Record<string, string> = { success: 'Erfolgreich', fail: 'Fehlgeschlagen', cancelled: 'Abgebrochen', terminated: 'Abgebrochen', skipped: 'Übersprungen' };
+
+  function renderStatus(s: SiteStatus): boolean {
+    const { release, live, build } = s;
+    const building = build && build.status !== 'stopped';
+    const failed = build?.status === 'stopped' && build.outcome && build.outcome !== 'success';
+    const waiting = Boolean(release && live && live.release !== release.id);
+    // Without API access a release that never shows up is reported after 15 minutes.
+    const overdue = waiting && !build && release && Date.now() - Date.parse(release.created_at) > 15 * 60_000;
+
+    let state: 'ok' | 'busy' | 'error' | 'unknown' = 'ok';
+    let title = live?.release ? `Online · Stand #${live.release}` : 'Online';
+    if (building) {
+      state = 'busy';
+      title = `${PHASE[build.status]} …`;
+    } else if (failed && waiting) {
+      state = 'error';
+      title = 'Build fehlgeschlagen';
+    } else if (overdue) {
+      state = 'error';
+      title = `Stand #${release!.id} ist noch nicht online`;
+    } else if (waiting) {
+      state = 'busy';
+      title = `Stand #${release!.id} wird veröffentlicht …`;
+    } else if (!live) {
+      state = 'unknown';
+      title = 'Live-Stand unbekannt';
+    }
+    $('[data-status-dot]').dataset.state = state;
+    $('[data-status-title]').textContent = title;
+
+    $('[data-status-text]').textContent = live
+      ? `Die Website zeigt ${live.release ? `Stand #${live.release}` : 'einen älteren Stand'}, gebaut am ${time(live.builtAt)} Uhr.`
+      : 'Die Website meldet noch keinen Stand – das kommt mit dem nächsten Build (oder SITE_URL fehlt).';
+
+    $('[data-status-build]').textContent = build
+      ? `Letzter Build: ${building ? `${PHASE[build.status]} seit ${duration(build.createdOn ?? new Date().toISOString())}` : (OUTCOME[build.outcome ?? ''] ?? build.outcome ?? '–')}` +
+        ` · ausgelöst über ${build.trigger}` +
+        (build.createdOn ? ` · ${time(build.createdOn)} Uhr` : '') +
+        (!building && build.createdOn && build.stoppedOn ? ` · Dauer ${duration(build.createdOn, build.stoppedOn)}` : '') +
+        (build.commitMessage && build.trigger === 'Git-Push' ? ` · „${build.commitMessage.split('\n')[0]}“` : '')
+      : '';
+
+    const hint = $('[data-status-hint]');
+    hint.hidden = !(s.buildError || !s.apiConfigured || failed || overdue);
+    hint.textContent = s.buildError
+      ? `Cloudflare-Status nicht abrufbar: ${s.buildError}`
+      : failed || overdue
+        ? 'Details stehen im Build-Log in Cloudflare (Worker → Deployments → Build-Verlauf).'
+        : 'Den genauen Build-Fortschritt siehst du, wenn CF_ACCOUNT_ID und CF_API_TOKEN gesetzt sind.';
+    return Boolean(building || (waiting && !overdue && !failed));
+  }
+
+  async function pollStatus() {
+    let active = false;
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      active = renderStatus(data as SiteStatus);
+    } catch (e) {
+      $('[data-status-title]').textContent = 'Status nicht abrufbar';
+      $('[data-status-dot]').dataset.state = 'unknown';
+      $('[data-status-text]').textContent = (e as Error).message;
+    }
+    // Every few seconds while something is going on, otherwise once a minute.
+    setTimeout(pollStatus, active ? 4000 : 60000);
+  }
+  pollStatus();
+
+  // ---- Preview ----
+  const previewForm = $<HTMLFormElement>('[data-preview-form]');
+  const previewButton = $<HTMLButtonElement>('[data-preview-button]');
+  let ticker: ReturnType<typeof setInterval> | undefined;
+
+  function renderPreview(p: PreviewState) {
+    clearInterval(ticker);
+    previewButton.disabled = p.building;
+    $('[data-preview-open]').hidden = !p.meta || p.building;
+    const error = $('[data-preview-error]');
+    error.hidden = !p.error;
+    error.textContent = p.error ? `Vorschau fehlgeschlagen:\n${p.error}` : '';
+    const text = $('[data-preview-text]');
+    if (p.building && p.startedAt) {
+      const tick = () => (text.textContent = `Wird erstellt … ${duration(p.startedAt!)} (dauert meist unter einer Minute)`);
+      tick();
+      ticker = setInterval(tick, 1000);
+    } else {
+      text.textContent = p.meta
+        ? `Letzte Vorschau: ${time(p.meta.builtAt)} Uhr${p.meta.includeDrafts ? ' · mit Entwürfen' : ''}. Spätere Änderungen sind darin noch nicht enthalten.`
+        : 'Noch keine Vorschau erstellt.';
+    }
+  }
+
+  async function pollPreview() {
+    const p = (await (await fetch('/api/preview')).json()) as PreviewState;
+    renderPreview(p);
+    if (p.building) setTimeout(pollPreview, 1500);
+  }
+
+  previewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/preview', { method: 'POST', body: new FormData(previewForm) });
+    renderPreview((await res.json()) as PreviewState);
+    pollPreview();
+  });
+  pollPreview();
+</script>
+
 <style>
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .publish { grid-column: span 2; display: grid; gap: 6px; align-content: start; }
-  .publish-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px; }
+  .publish, .status, .preview { display: grid; gap: 6px; align-content: start; }
+  .publish-actions, .preview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
   .publish-actions form { margin: 0; }
   .stat { color: var(--text); display: grid; gap: 4px; align-content: start; }
   .stat:hover { text-decoration: none; border-color: var(--accent); }
-  .stat h2, .publish h2 { margin: 0; color: var(--muted); font-size: 13px; }
-  .big { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat h2, .publish h2, .status h2, .preview h2 { margin: 0; color: var(--muted); font-size: 13px; }
+  .big { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
   .big-pending { color: var(--warn); }
-  .publish p { margin: 0; }
+  .cards p { margin: 0; }
   .small { font-size: 12px; }
-  @media (max-width: 700px) { .publish { grid-column: auto; } }
+  .status-title { display: flex; align-items: center; gap: 10px; font-size: 20px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--muted); }
+  .dot[data-state='ok'] { background: var(--ok); }
+  .dot[data-state='error'] { background: var(--danger); }
+  .dot[data-state='busy'] { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .dot[data-state='busy'] { animation: none; } }
+  .preview-title { font-weight: 500; }
+  .preview-error { margin: 4px 0 0; padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow: auto; }
+  .preview-error[hidden], [data-preview-open][hidden], [data-status-hint][hidden] { display: none; }
+  .check-inline { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; margin-right: 4px; }
 </style>

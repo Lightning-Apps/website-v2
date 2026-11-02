@@ -1,22 +1,52 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { localeStaticPaths, useTranslations, type Locale } from '../../i18n/ui';
+import { OPERATOR } from '../../lib/legal';
 
 export const getStaticPaths = localeStaticPaths;
 
 const lang = Astro.params.lang as Locale;
 const t = useTranslations(lang);
+const de = lang === 'de';
 ---
 
 <BaseLayout lang={lang} title={t('imprint.title')}>
   <section class="section">
     <div class="container prose legal">
       <h1 class="headline-l">{t('imprint.title')}</h1>
-      <p>{t('legal.placeholder')}</p>
+      {!de && <p class="legal-note">{t('legal.germanBinding')}</p>}
+
+      <h2>{de ? 'Angaben gemäß § 5 DDG' : 'Information pursuant to § 5 DDG (German Digital Services Act)'}</h2>
+      <p>
+        {OPERATOR.name} – {OPERATOR.business}<br />
+        {OPERATOR.street}<br />
+        {OPERATOR.city}<br />
+        {OPERATOR.country[lang]}
+      </p>
+
+      <h2>{de ? 'Kontakt' : 'Contact'}</h2>
+      <p>{de ? 'E-Mail' : 'Email'}: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a></p>
+
+      <h2>{de ? 'Umsatzsteuer' : 'VAT'}</h2>
+      <p>
+        {
+          de
+            ? 'Umsatzsteuer gemäß § 19 UStG nicht ausgewiesen (Kleinunternehmerregelung).'
+            : 'No VAT is charged in accordance with § 19 UStG (German small business regulation).'
+        }
+      </p>
+
+      <h2>{de ? 'Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV' : 'Responsible for content pursuant to § 18 (2) MStV'}</h2>
+      <p>
+        {OPERATOR.name}<br />
+        {OPERATOR.street}<br />
+        {OPERATOR.city}
+      </p>
     </div>
   </section>
 </BaseLayout>
 
 <style>
   .legal { max-width: 720px; }
+  .legal-note { font-size: 15px; color: var(--text-secondary); }
 </style>

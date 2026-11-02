@@ -1,22 +1,186 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { localeStaticPaths, useTranslations, type Locale } from '../../i18n/ui';
+import { localeStaticPaths, localizePath, useTranslations, type Locale } from '../../i18n/ui';
+import { LEGAL_UPDATED, OPERATOR } from '../../lib/legal';
 
 export const getStaticPaths = localeStaticPaths;
 
 const lang = Astro.params.lang as Locale;
 const t = useTranslations(lang);
+const de = lang === 'de';
+const mailto = `mailto:${OPERATOR.email}`;
 ---
 
 <BaseLayout lang={lang} title={t('privacy.title')}>
   <section class="section">
     <div class="container prose legal">
       <h1 class="headline-l">{t('privacy.title')}</h1>
-      <p>{t('legal.placeholder')}</p>
+      {!de && <p class="legal-note">{t('legal.germanBinding')}</p>}
+
+      {
+        de ? (
+          <>
+            <h2>1. Verantwortlicher</h2>
+            <p>
+              {OPERATOR.name} – {OPERATOR.business}<br />
+              {OPERATOR.street}, {OPERATOR.city}<br />
+              E-Mail: <a href={mailto}>{OPERATOR.email}</a>
+            </p>
+            <p>Weitere Angaben findest du im <a href={localizePath(lang, 'imprint')}>Impressum</a>.</p>
+
+            <h2>2. Überblick</h2>
+            <p>
+              Diese Website ist ein reines Informationsangebot. Es gibt keine Benutzerkonten, keine Formulare, keine Cookies und keine
+              Tracking- oder Analyse-Tools. Es werden keine Nutzerprofile erstellt. Personenbezogene Daten fallen nur technisch bedingt beim
+              Aufruf der Seiten an (Abschnitte 3 und 4) oder wenn du uns eine E-Mail schreibst (Abschnitt 7).
+            </p>
+
+            <h2>3. Hosting über Cloudflare</h2>
+            <p>
+              Die Website wird über Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA, ausgeliefert. Cloudflare ist als
+              technischer Dienstleister und Auftragsverarbeiter für uns tätig. Bei jedem Aufruf verarbeitet Cloudflare technisch notwendige
+              Daten: IP-Adresse, Datum und Uhrzeit, aufgerufene Adresse, übertragene Datenmenge sowie Browser und Betriebssystem. Diese Daten
+              werden benötigt, um die Website auszuliefern und vor Angriffen zu schützen.
+            </p>
+            <p>
+              Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse liegt in einer sicheren und zuverlässigen
+              Bereitstellung der Website. Cloudflare ist unter dem EU-US Data Privacy Framework zertifiziert, sodass Übermittlungen in die USA
+              auf einem Angemessenheitsbeschluss der EU-Kommission beruhen (Art. 45 DSGVO). Mehr dazu:
+              <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">cloudflare.com/privacypolicy</a>.
+            </p>
+
+            <h2>4. Bilder über Supabase</h2>
+            <p>
+              Bilder auf dieser Website (z. B. App-Icons und Screenshots) werden direkt aus dem Speicher von Supabase Pte. Ltd., 65 Chulia
+              Street #38-02/03, OCBC Centre, Singapore 049513, geladen. Die Daten liegen auf Servern in Frankfurt am Main. Damit dein Browser ein Bild laden kann,
+              erhält Supabase technisch notwendige Daten: IP-Adresse, Datum und Uhrzeit, die angefragte Datei sowie Browser-Informationen.
+            </p>
+            <p>
+              Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse liegt in einer effizienten Verwaltung und
+              Auslieferung der Bilder. Supabase verarbeitet die Daten als Auftragsverarbeiter. Soweit dabei Daten in Länder außerhalb der EU
+              übermittelt werden, geschieht das auf Grundlage von EU-Standardvertragsklauseln (Art. 46 DSGVO). Mehr dazu:
+              <a href="https://supabase.com/privacy" rel="noopener">supabase.com/privacy</a>.
+            </p>
+
+            <h2>5. Cookies und lokale Speicherung</h2>
+            <p>
+              Diese Website setzt keine Cookies und speichert nichts in deinem Browser. Beim Aufruf der Startadresse wirst du anhand der
+              Spracheinstellung deines Browsers auf die deutsche oder englische Version weitergeleitet; das passiert ausschließlich lokal in
+              deinem Browser.
+            </p>
+
+            <h2>6. Externe Links</h2>
+            <p>
+              Die Website verlinkt auf Angebote anderer Anbieter, z. B. den App Store von Apple oder GitHub. Erst wenn du einen solchen Link
+              anklickst, werden Daten an den jeweiligen Anbieter übertragen. Für dessen Datenverarbeitung ist allein dieser verantwortlich.
+            </p>
+
+            <h2>7. Kontakt per E-Mail</h2>
+            <p>
+              Wenn du uns eine E-Mail schreibst, verarbeiten wir deine Adresse und den Inhalt der Nachricht, um dein Anliegen zu beantworten.
+              Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO bzw., wenn es um eine Vertragsanbahnung geht, Art. 6 Abs. 1 lit. b DSGVO. Die
+              Daten werden gelöscht, sobald dein Anliegen abschließend bearbeitet ist und keine gesetzlichen Aufbewahrungspflichten bestehen.
+            </p>
+
+            <h2>8. Deine Rechte</h2>
+            <p>
+              Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung
+              (Art. 18), Datenübertragbarkeit (Art. 20) sowie auf Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen
+              (Art. 21 DSGVO). Schreib dafür einfach an <a href={mailto}>{OPERATOR.email}</a>.
+            </p>
+
+            <h2>9. Beschwerderecht</h2>
+            <p>
+              Du kannst dich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO). Zuständig für uns ist die Berliner Beauftragte
+              für Datenschutz und Informationsfreiheit, Alt-Moabit 59–61, 10555 Berlin,
+              <a href="https://www.datenschutz-berlin.de" rel="noopener">datenschutz-berlin.de</a>.
+            </p>
+
+            <p class="legal-note">{t('legal.updated')}: {LEGAL_UPDATED.de}</p>
+          </>
+        ) : (
+          <>
+            <h2>1. Controller</h2>
+            <p>
+              {OPERATOR.name} – {OPERATOR.business}<br />
+              {OPERATOR.street}, {OPERATOR.city}, {OPERATOR.country.en}<br />
+              Email: <a href={mailto}>{OPERATOR.email}</a>
+            </p>
+            <p>See the <a href={localizePath(lang, 'imprint')}>imprint</a> for further details.</p>
+
+            <h2>2. Overview</h2>
+            <p>
+              This website is purely informational. There are no user accounts, no forms, no cookies and no tracking or analytics tools. No
+              user profiles are created. Personal data is only processed for technical reasons when you visit the pages (sections 3 and 4) or
+              when you email us (section 7).
+            </p>
+
+            <h2>3. Hosting via Cloudflare</h2>
+            <p>
+              The website is delivered by Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA, acting as our technical service
+              provider and processor. With every request, Cloudflare processes technically necessary data: IP address, date and time, the
+              requested address, amount of data transferred, and browser and operating system. This data is needed to deliver the website and
+              protect it against attacks.
+            </p>
+            <p>
+              The legal basis is Art. 6(1)(f) GDPR; our legitimate interest is the secure and reliable provision of the website. Cloudflare is
+              certified under the EU-US Data Privacy Framework, so transfers to the USA rely on an adequacy decision of the European Commission
+              (Art. 45 GDPR). More: <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">cloudflare.com/privacypolicy</a>.
+            </p>
+
+            <h2>4. Images via Supabase</h2>
+            <p>
+              Images on this website (e.g. app icons and screenshots) are loaded directly from the storage of Supabase Pte. Ltd., 65 Chulia
+              Street #38-02/03, OCBC Centre, Singapore 049513. The data is stored on servers in Frankfurt am Main, Germany. To load an image, your browser sends
+              Supabase technically necessary data: IP address, date and time, the requested file and browser information.
+            </p>
+            <p>
+              The legal basis is Art. 6(1)(f) GDPR; our legitimate interest is the efficient management and delivery of images. Supabase
+              processes the data as our processor. Where data is transferred to countries outside the EU, this is based on the EU Standard
+              Contractual Clauses (Art. 46 GDPR). More: <a href="https://supabase.com/privacy" rel="noopener">supabase.com/privacy</a>.
+            </p>
+
+            <h2>5. Cookies and local storage</h2>
+            <p>
+              This website sets no cookies and stores nothing in your browser. When you open the start address, you are forwarded to the German
+              or English version based on your browser's language setting; this happens entirely in your browser.
+            </p>
+
+            <h2>6. External links</h2>
+            <p>
+              The website links to services of other providers, e.g. Apple's App Store or GitHub. Data is only transferred to these providers
+              once you click such a link. They alone are responsible for their data processing.
+            </p>
+
+            <h2>7. Contact by email</h2>
+            <p>
+              If you email us, we process your address and the content of your message to answer your request. The legal basis is Art. 6(1)(f)
+              GDPR or, where it concerns entering into a contract, Art. 6(1)(b) GDPR. The data is deleted once your request has been fully
+              handled and no statutory retention obligations apply.
+            </p>
+
+            <h2>8. Your rights</h2>
+            <p>
+              You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18),
+              data portability (Art. 20) and to object to processing based on legitimate interests (Art. 21 GDPR). Just write to <a href={mailto}>{OPERATOR.email}</a>.
+            </p>
+
+            <h2>9. Right to lodge a complaint</h2>
+            <p>
+              You can lodge a complaint with a data protection supervisory authority (Art. 77 GDPR). The authority responsible for us is the
+              Berlin Commissioner for Data Protection and Freedom of Information, Alt-Moabit 59–61, 10555 Berlin, Germany,
+              <a href="https://www.datenschutz-berlin.de" rel="noopener">datenschutz-berlin.de</a>.
+            </p>
+
+            <p class="legal-note">{t('legal.updated')}: {LEGAL_UPDATED.en}</p>
+          </>
+        )
+      }
     </div>
   </section>
 </BaseLayout>
 
 <style>
   .legal { max-width: 720px; }
+  .legal-note { font-size: 15px; color: var(--text-secondary); }
 </style>

@@ -1,17 +1,21 @@
 ---
 // Sends visitors to their browser language (German by default).
+import { localizePath } from '../i18n/ui';
+
+const de = localizePath('de');
+const en = localizePath('en');
 ---
 
 <!doctype html>
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="refresh" content="0; url=/de/" />
-    <link rel="canonical" href="/de/" />
+    <meta http-equiv="refresh" content={`0; url=${de}`} />
+    <link rel="canonical" href={de} />
     <title>Lightning Apps</title>
-    <script is:inline>
-      location.replace(navigator.language?.toLowerCase().startsWith('de') ? '/de/' : '/en/');
+    <script is:inline define:vars={{ de, en }}>
+      location.replace(navigator.language?.toLowerCase().startsWith('de') ? de : en);
     </script>
   </head>
-  <body><a href="/de/">Lightning Apps</a></body>
+  <body><a href={de}>Lightning Apps</a></body>
 </html>

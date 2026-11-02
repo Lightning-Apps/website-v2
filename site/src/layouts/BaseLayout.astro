@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import Navbar from '../components/Navbar.astro';
 import Footer from '../components/Footer.astro';
-import { LOCALES, localizePath, switchLocalePath, useTranslations, type Locale } from '../i18n/ui';
+import { LOCALES, localizePath, switchLocalePath, useTranslations, withBase, type Locale } from '../i18n/ui';
 
 interface Props {
   lang: Locale;
@@ -15,6 +15,8 @@ const t = useTranslations(lang);
 const fullTitle = title ? `${title} – Lightning Apps` : 'Lightning Apps';
 const desc = description ?? t('home.studioText');
 const canonical = new URL(Astro.url.pathname, Astro.site);
+// Set by the dashboard when it builds a preview with unpublished changes.
+const previewLabel = process.env.PREVIEW_LABEL;
 ---
 
 <!doctype html>
@@ -28,7 +30,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     {LOCALES.map((l) => <link rel="alternate" hreflang={l} href={new URL(switchLocalePath(Astro.url.pathname, l), Astro.site)} />)}
     <link rel="alternate" hreflang="x-default" href={new URL(switchLocalePath(Astro.url.pathname, 'de'), Astro.site)} />
     <link rel="alternate" type="application/rss+xml" title="Lightning Apps Newsroom" href={localizePath(lang, 'rss.xml').replace(/\/$/, '')} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={withBase('favicon.svg')} type="image/svg+xml" />
+    {previewLabel && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
@@ -48,6 +51,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <slot />
     </main>
     <Footer lang={lang} />
+    {previewLabel && <div class="preview-badge" role="status">{previewLabel}</div>}
 
     <script>
       const els = document.querySelectorAll('.reveal');

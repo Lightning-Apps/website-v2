@@ -8,11 +8,13 @@ COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY site/package.json site/
 COPY dashboard/package.json dashboard/
-RUN npm ci --workspace dashboard --include-workspace-root=false
+# The website workspace is included: the dashboard builds previews of it.
+RUN npm ci --workspace dashboard --workspace site --include-workspace-root=false
 COPY shared shared
 COPY dashboard dashboard
+COPY site site
 RUN npm run build --workspace dashboard \
- && npm prune --omit=dev --workspace dashboard --include-workspace-root=false
+ && npm prune --omit=dev --workspace dashboard --workspace site --include-workspace-root=false
 
 FROM node:26-alpine
 ENV NODE_ENV=production \
@@ -24,7 +26,9 @@ COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/shared shared
 COPY --from=build /app/dashboard/package.json dashboard/
 COPY --from=build /app/dashboard/dist dashboard/dist
-RUN mkdir -p /data && chown node:node /data
+COPY --from=build /app/site site
+# Preview builds work in site/.astro (a tmpfs in compose.dashboard.yml, the container is read-only).
+RUN mkdir -p /data site/.astro && chown node:node /data site/.astro
 USER node
 EXPOSE 4322
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:4322/healthz || exit 1

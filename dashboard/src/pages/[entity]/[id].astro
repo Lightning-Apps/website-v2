@@ -5,8 +5,7 @@ import RowActions from '../../components/RowActions.astro';
 import SortHandle from '../../components/SortHandle.astro';
 import Sortable from '../../components/Sortable.astro';
 import { ENTITIES, getEntity } from '../../lib/entities';
-import { cleanupImages, configError, db, formToRow } from '../../lib/server';
-import { recordDeletion } from '../../lib/publish';
+import { configError, db, formToRow } from '../../lib/server';
 
 const entity = getEntity(Astro.params.entity);
 if (!entity) return new Response('Not found', { status: 404 });
@@ -25,27 +24,20 @@ if (!setupError && Astro.request.method === 'POST') {
   const action = form.get('_action');
   try {
     if (action === 'delete' && !isNew) {
+      // Images stay in storage until the next publish, so the deletion can still be discarded.
       const { data: existing } = await db().from(entity.table).select('*').eq('id', id).single();
-      // Features are removed with their app (on delete cascade), so collect their images first.
-      const { data: childFeatures } =
-        entity.key === 'apps' ? await db().from(ENTITIES.features.table).select('*').eq('app_id', id) : { data: null };
       const { error: delError } = await db().from(entity.table).delete().eq('id', id);
       if (delError) throw new Error(delError.message);
-      await cleanupImages(entity, existing, null);
-      await recordDeletion(existing);
-      for (const feature of childFeatures ?? []) await cleanupImages(ENTITIES.features, feature, null);
       const name = existing?.[entity.titleField] ?? entity.singular;
       const target = entity.key === 'features' ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
       return Astro.redirect(target, 303);
     }
     const values = await formToRow(entity, form);
-    const { data: before } = isNew ? { data: null } : await db().from(entity.table).select('*').eq('id', id).single();
     const query = isNew
       ? db().from(entity.table).insert(values).select().single()
       : db().from(entity.table).update(values).eq('id', id).select().single();
     const { data, error: saveError } = await query;
     if (saveError) throw new Error(saveError.code === '23505' ? 'Dieser Slug ist schon vergeben.' : saveError.message);
-    await cleanupImages(entity, before, values);
     return Astro.redirect(`/${entity.key}/${data.id}?saved=1`, 303);
   } catch (e) {
     error = (e as Error).message;

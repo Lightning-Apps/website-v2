@@ -6,8 +6,5 @@
 !**/.env.example
 .git
 .claude
-site/src
-site/public
 supabase
-**/.deploy-state.json
-**/.deploy-snapshot.json
+**/.preview

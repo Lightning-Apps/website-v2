@@ -1,10 +1,13 @@
 import type { APIRoute } from 'astro';
-import { triggerDeploy } from '../../lib/publish';
+import { publish } from '../../lib/publish';
 
-export const POST: APIRoute = async ({ redirect }) => {
+// Publishes all open changes, or only the ones ticked in the change list (`mode=selected`).
+export const POST: APIRoute = async ({ request, redirect }) => {
   try {
-    await triggerDeploy();
-    return redirect('/?deployed=1', 303);
+    const form = await request.formData();
+    const selection = form.get('mode') === 'selected' ? form.getAll('change').map(String) : null;
+    const { published, release } = await publish(selection);
+    return redirect(`/?deployed=${release}&count=${published}`, 303);
   } catch (e) {
     return redirect(`/?error=${encodeURIComponent((e as Error).message)}`, 303);
   }

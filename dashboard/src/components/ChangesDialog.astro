@@ -1,14 +1,16 @@
 ---
-// Overlay listing the changes that are not on the live website yet.
+// Overlay listing the changes that are not on the live website yet: details, discard, publish a selection.
 import { ENTITIES, type EntityKey } from '../lib/entities';
 import type { ChangeEntry, Changelog } from '../lib/publish';
 import { formatDateTime } from '../lib/server';
 
 interface Props {
   changelog: Changelog;
-  lastDeployAt: string | null;
+  /** Open right away (after discarding from the overlay). */
+  open?: boolean;
 }
-const { changelog, lastDeployAt } = Astro.props;
+const { changelog, open = false } = Astro.props;
+const { release } = changelog;
 
 const KIND: Record<ChangeEntry['kind'], { label: string; cls: string }> = {
   new: { label: 'Neu', cls: 'kind-new' },
@@ -22,30 +24,32 @@ function groups(list: ChangeEntry[]) {
   return [...map.entries()].map(([key, items]) => ({ label: ENTITIES[key].label, items }));
 }
 const live = groups(changelog.entries);
+const titles = new Map(changelog.entries.map((e) => [e.key, `${ENTITIES[e.entity].singular} „${e.title}“`]));
 const drafts = changelog.drafts;
+const total = changelog.entries.length;
 ---
 
-<dialog class="changes" id="changes-dialog" aria-labelledby="changes-title">
+<dialog class="changes" id="changes-dialog" aria-labelledby="changes-title" data-open={open ? '' : undefined}>
   <header class="changes-head">
     <div>
       <h2 id="changes-title">Offene Änderungen</h2>
       <p class="muted">
-        {lastDeployAt ? `Seit dem letzten Veröffentlichen am ${formatDateTime(lastDeployAt)} Uhr` : 'Seit Beginn – es wurde noch nie aus dem Dashboard veröffentlicht.'}
+        {release ? `Seit Stand #${release.id} vom ${formatDateTime(release.created_at)} Uhr` : 'Es wurde noch nie veröffentlicht.'}
       </p>
     </div>
     <button type="button" class="close" data-close-dialog aria-label="Schließen">✕</button>
   </header>
 
-  <div class="changes-body">
+  <div class="changes-body" data-list-view>
+    {total === 0 && <p class="muted">Keine offenen Änderungen auf der Website.</p>}
+
     {
-      !changelog.exact && (
-        <p class="notice notice-warn">
-          Bis zum nächsten Veröffentlichen kennt das Dashboard nur, welche Einträge bearbeitet wurden, nicht welche Felder. Ab dann siehst du hier jede Änderung genau.
-        </p>
+      total > 1 && (
+        <label class="check select-all">
+          <input type="checkbox" checked data-select-all /> Alle auswählen
+        </label>
       )
     }
-
-    {live.length === 0 && changelog.unnamedDeletions === 0 && <p class="muted">Keine offenen Änderungen auf der Website.</p>}
 
     {
       live.map((group) => (
@@ -54,11 +58,26 @@ const drafts = changelog.drafts;
           <ul>
             {group.items.map((entry) => (
               <li>
+                <input
+                  type="checkbox"
+                  name="change"
+                  value={entry.key}
+                  form="publish-selection"
+                  checked
+                  aria-label={`${entry.title} veröffentlichen`}
+                  data-requires={entry.requires.join(' ')}
+                />
                 <span class:list={['kind', KIND[entry.kind].cls]}>{KIND[entry.kind].label}</span>
                 <div class="entry">
-                  {entry.href ? <a href={entry.href}>{entry.title}</a> : <span class="deleted-title">{entry.title}</span>}
-                  {entry.context && <span class="muted"> · {entry.context}</span>}
+                  <button type="button" class="entry-title" data-detail={`/changes/${entry.entity}/${entry.id}`}>
+                    <span class:list={{ 'deleted-title': entry.kind === 'deleted' }}>{entry.title}</span>
+                    {entry.context && <span class="muted"> · {entry.context}</span>}
+                    <span class="chevron" aria-hidden="true">›</span>
+                  </button>
                   {entry.fields.length > 0 && <p class="fields">{entry.fields.join(', ')}</p>}
+                  {entry.requires.length > 0 && (
+                    <p class="fields requires">Nur zusammen mit: {entry.requires.map((k) => titles.get(k) ?? k).join(', ')}</p>
+                  )}
                 </div>
               </li>
             ))}
@@ -68,26 +87,21 @@ const drafts = changelog.drafts;
     }
 
     {
-      changelog.unnamedDeletions > 0 && (
-        <p class="muted">
-          Außerdem {changelog.unnamedDeletions === 1 ? 'ein gelöschter Eintrag' : `${changelog.unnamedDeletions} gelöschte Einträge`} ohne Details (gelöscht, bevor das Änderungsprotokoll existierte).
-        </p>
-      )
-    }
-
-    {
       drafts.length > 0 && (
         <details class="drafts">
           <summary>
-            {drafts.length === 1 ? '1 Änderung' : `${drafts.length} Änderungen`} an Entwürfen – nicht auf der Website
+            {drafts.length === 1 ? '1 Änderung' : `${drafts.length} Änderungen`} an Entwürfen – ändern die Website nicht, werden aber mit übernommen
           </summary>
           <ul>
             {drafts.map((entry) => (
               <li>
                 <span class:list={['kind', KIND[entry.kind].cls]}>{KIND[entry.kind].label}</span>
                 <div class="entry">
-                  <span class="muted">{ENTITIES[entry.entity].singular}: </span>
-                  {entry.href ? <a href={entry.href}>{entry.title}</a> : <span class="deleted-title">{entry.title}</span>}
+                  <button type="button" class="entry-title" data-detail={`/changes/${entry.entity}/${entry.id}`}>
+                    <span class="muted">{ENTITIES[entry.entity].singular}: </span>
+                    <span class:list={{ 'deleted-title': entry.kind === 'deleted' }}>{entry.title}</span>
+                    <span class="chevron" aria-hidden="true">›</span>
+                  </button>
                   {entry.fields.length > 0 && <p class="fields">{entry.fields.join(', ')}</p>}
                 </div>
               </li>
@@ -98,28 +112,100 @@ const drafts = changelog.drafts;
     }
   </div>
 
+  <div class="changes-body detail-view" data-detail-view hidden>
+    <button type="button" class="back" data-back>‹ Alle Änderungen</button>
+    <div data-detail-content aria-live="polite"></div>
+  </div>
+
   <footer class="changes-foot">
     <button type="button" class="btn" data-close-dialog>Schließen</button>
-    <form method="post" action="/api/deploy" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
-      <button class="btn btn-primary" type="submit">Website veröffentlichen</button>
+    <form method="post" action="/api/deploy" id="publish-selection" data-confirm-selection>
+      <input type="hidden" name="mode" value="selected" />
+      <button class="btn btn-primary" type="submit" data-publish-button>
+        {total > 0 ? `Auswahl veröffentlichen (${total} von ${total})` : 'Website neu bauen'}
+      </button>
     </form>
   </footer>
 </dialog>
 
 <script>
   const dialog = document.querySelector<HTMLDialogElement>('#changes-dialog')!;
+  const listView = dialog.querySelector<HTMLElement>('[data-list-view]')!;
+  const detailView = dialog.querySelector<HTMLElement>('[data-detail-view]')!;
+  const detailContent = dialog.querySelector<HTMLElement>('[data-detail-content]')!;
+  const boxes = [...dialog.querySelectorAll<HTMLInputElement>('input[name="change"]')];
+  const selectAll = dialog.querySelector<HTMLInputElement>('[data-select-all]');
+  const publishButton = dialog.querySelector<HTMLButtonElement>('[data-publish-button]')!;
+  const publishForm = dialog.querySelector<HTMLFormElement>('#publish-selection')!;
+
   document.querySelectorAll('[data-open-changes]').forEach((b) => b.addEventListener('click', () => dialog.showModal()));
   dialog.querySelectorAll('[data-close-dialog]').forEach((b) => b.addEventListener('click', () => dialog.close()));
   // Click on the dimmed backdrop closes the overlay.
   dialog.addEventListener('click', (e) => {
     if (e.target === dialog) dialog.close();
   });
+  if (dialog.hasAttribute('data-open')) dialog.showModal();
+
+  // Details of one change
+  const showList = () => {
+    detailView.hidden = true;
+    listView.hidden = false;
+  };
+  dialog.querySelector('[data-back]')!.addEventListener('click', showList);
+  dialog.addEventListener('close', showList);
+  dialog.querySelectorAll<HTMLButtonElement>('[data-detail]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      listView.hidden = true;
+      detailView.hidden = false;
+      detailContent.innerHTML = '<p class="muted">Lädt …</p>';
+      try {
+        const res = await fetch(button.dataset.detail!);
+        detailContent.innerHTML = await res.text();
+      } catch {
+        detailContent.innerHTML = '<p class="muted">Konnte die Details nicht laden.</p>';
+      }
+    }),
+  );
+
+  // Selection with dependencies: ticking a change ticks what it needs; unticking one unticks what needs it.
+  const byKey = new Map(boxes.map((b) => [b.value, b]));
+  const requires = (box: HTMLInputElement) => (box.dataset.requires ?? '').split(' ').filter(Boolean);
+  function setChecked(box: HTMLInputElement, checked: boolean, seen = new Set<string>()) {
+    if (seen.has(box.value)) return;
+    seen.add(box.value);
+    box.checked = checked;
+    if (checked) requires(box).forEach((k) => byKey.get(k) && setChecked(byKey.get(k)!, true, seen));
+    else boxes.filter((b) => requires(b).includes(box.value)).forEach((b) => setChecked(b, false, seen));
+  }
+  function update() {
+    const selected = boxes.filter((b) => b.checked).length;
+    if (boxes.length) publishButton.textContent = `Auswahl veröffentlichen (${selected} von ${boxes.length})`;
+    if (selectAll) {
+      selectAll.checked = selected === boxes.length;
+      selectAll.indeterminate = selected > 0 && selected < boxes.length;
+    }
+  }
+  boxes.forEach((box) => box.addEventListener('change', () => (setChecked(box, box.checked), update())));
+  selectAll?.addEventListener('change', () => {
+    boxes.forEach((b) => (b.checked = selectAll.checked));
+    update();
+  });
+
+  publishForm.addEventListener('submit', (e) => {
+    const selected = boxes.filter((b) => b.checked).length;
+    const message = !boxes.length
+      ? 'Website ohne neue Änderungen neu bauen?'
+      : selected === 0
+        ? 'Keine Änderung ausgewählt. Trotzdem neu bauen? (Änderungen an Entwürfen werden übernommen.)'
+        : `${selected} von ${boxes.length} Änderungen veröffentlichen? Die übrigen bleiben offen.`;
+    if (!window.confirm(message)) e.preventDefault();
+  });
 </script>
 
 <style>
   .changes {
-    width: min(640px, calc(100vw - 32px));
-    max-height: min(80vh, 760px);
+    width: min(680px, calc(100vw - 32px));
+    max-height: min(84vh, 800px);
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -129,28 +215,70 @@ const drafts = changelog.drafts;
   }
   .changes[open] { display: flex; flex-direction: column; }
   .changes::backdrop { background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); }
-  .changes-head, .changes-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px; }
+  .changes-head, .changes-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 24px; }
   .changes-head { border-bottom: 1px solid var(--border); }
   .changes-head h2 { margin: 0 0 4px; font-size: 20px; }
   .changes-head p { margin: 0; font-size: 13px; }
-  .changes-foot { border-top: 1px solid var(--border); justify-content: flex-end; align-items: center; }
+  .changes-foot { border-top: 1px solid var(--border); justify-content: flex-end; align-items: center; flex-wrap: wrap; }
   .changes-foot form { margin: 0; }
   .close { border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
   .close:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
-  .changes-body { overflow-y: auto; padding: 16px 24px 24px; display: grid; gap: 20px; }
-  .changes-body .notice { margin: 0; }
+  .changes-body { overflow-y: auto; padding: 16px 24px 24px; display: grid; gap: 20px; align-content: start; }
+  .changes-body[hidden] { display: none; }
+  .select-all { font-size: 13px; }
   .group h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-  li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   li:last-child { border-bottom: 0; }
-  .entry { min-width: 0; }
-  .entry a { font-weight: 600; }
-  .deleted-title { font-weight: 600; text-decoration: line-through; color: var(--muted); }
+  li > input { margin-top: 3px; flex-shrink: 0; }
+  .entry { min-width: 0; flex: 1; }
+  .entry-title {
+    display: inline;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .entry-title:hover > span:first-child { text-decoration: underline; }
+  .chevron { margin-left: 4px; }
+  .deleted-title { text-decoration: line-through; color: var(--muted); }
   .fields { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .requires { color: var(--warn); }
   .kind { flex-shrink: 0; width: 72px; text-align: center; padding: 2px 0; border-radius: 980px; font-size: 11px; font-weight: 600; margin-top: 1px; }
   .kind-new { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
   .kind-changed { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   .kind-deleted { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
   .drafts summary { cursor: pointer; color: var(--muted); font-weight: 500; }
   .drafts ul { margin-top: 8px; }
+
+  /* Detail view (markup comes from /changes/[entity]/[id]) */
+  .back { justify-self: start; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 500; cursor: pointer; }
+  .detail-view :global(.detail) { display: grid; gap: 14px; }
+  .detail-view :global(.detail-head) { display: flex; gap: 12px; align-items: flex-start; }
+  .detail-view :global(.detail-head h3) { margin: 0; font-size: 19px; }
+  .detail-view :global(.detail-type) { margin: 0 0 2px; font-size: 12px; color: var(--muted); }
+  .detail-view :global(.detail-note) { margin: 0; font-size: 13px; }
+  .detail-view :global(.diff) { display: grid; gap: 12px; }
+  .detail-view :global(.diff-field) { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .detail-view :global(.diff-field h4) { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .detail-view :global(.diff-inline),
+  .detail-view :global(.diff-value) { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+  .detail-view :global(.diff-cols) { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .detail-view :global(.diff-before) { padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--danger) 9%, transparent); }
+  .detail-view :global(.diff-after) { padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--ok) 11%, transparent); }
+  .detail-view :global(ins) { background: color-mix(in srgb, var(--ok) 22%, transparent); text-decoration: none; border-radius: 3px; }
+  .detail-view :global(del) { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-radius: 3px; }
+  .detail-view :global(.diff-cols img) { max-width: 100%; max-height: 160px; border-radius: 10px; border: 1px solid var(--border); object-fit: contain; background: var(--bg); }
+  .detail-view :global(.swatch-row) { display: flex; align-items: center; gap: 8px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .detail-view :global(.swatch) { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); }
+  .detail-view :global(.detail-actions) { display: flex; gap: 8px; flex-wrap: wrap; }
+  .detail-view :global(.detail-actions form) { margin: 0; }
+  .detail-view :global(.kind) { flex-shrink: 0; width: 72px; text-align: center; padding: 2px 0; border-radius: 980px; font-size: 11px; font-weight: 600; margin-top: 3px; }
+  .detail-view :global(.kind-new) { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .detail-view :global(.kind-changed) { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .detail-view :global(.kind-deleted) { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
 </style>

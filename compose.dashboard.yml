@@ -20,6 +20,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      # Working folder of the website preview builds.
+      - /app/site/.astro:uid=1000,gid=1000
     security_opt:
       - no-new-privileges:true
 

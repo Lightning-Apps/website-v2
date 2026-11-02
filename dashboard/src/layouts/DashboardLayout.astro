@@ -35,7 +35,7 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
       <nav>
         {nav.map((item) => <a href={item.href} class:list={{ active: isActive(item.href) }}>{item.label}</a>)}
       </nav>
-      <form method="post" action="/api/deploy" class="deploy-form" data-confirm="Website jetzt mit den aktuellen Inhalten neu bauen?">
+      <form method="post" action="/api/deploy" class="deploy-form" data-confirm="Alle offenen Änderungen veröffentlichen und die Website neu bauen?">
         <button class="btn btn-primary btn-block" type="submit">Website veröffentlichen</button>
       </form>
       {

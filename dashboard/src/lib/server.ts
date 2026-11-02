@@ -88,17 +88,6 @@ export async function formToRow(entity: Entity, form: FormData): Promise<Record<
   return row;
 }
 
-/** Deletes image files that a save replaced or removed, or all of a deleted row's images (pass `after` = null). */
-export async function cleanupImages(entity: Entity, before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
-  if (!before) return;
-  const stale = entity.fields
-    .filter((f) => f.type === 'image')
-    .map((f) => f.name)
-    .filter((column) => before[column] && (after === null || (column in after && after[column] !== before[column])))
-    .map((column) => String(before[column]));
-  if (stale.length) await db().storage.from(MEDIA_BUCKET).remove(stale);
-}
-
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 }

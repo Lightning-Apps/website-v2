@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Logo from '../../components/Logo.astro';
 import { localeStaticPaths, useTranslations, type Locale } from '../../i18n/ui';
+import { OPERATOR } from '../../lib/legal';
 
 export const getStaticPaths = localeStaticPaths;
 
@@ -12,8 +13,7 @@ const values = [
   { title: t('about.value2Title'), text: t('about.value2Text') },
   { title: t('about.value3Title'), text: t('about.value3Text') },
 ];
-// Placeholder contact address – replace with the studio's real one.
-const contactEmail = 'hello@example.com';
+const contactEmail = OPERATOR.email;
 ---
 
 <BaseLayout lang={lang} title={t('about.title')} description={t('about.lead')}>

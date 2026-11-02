@@ -27,9 +27,10 @@ const platforms = (row.platforms ?? []) as Platform[];
         {LOCALES.map((lang, i) => (
           <button type="button" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-lang-tab={lang}>
             {LANG_LABEL[lang]}
+            {lang !== 'de' && <span class="empty-count" data-empty-count hidden></span>}
           </button>
         ))}
-        <span class="muted lang-hint">Felder mit 🌐 gibt es pro Sprache. Leere englische Felder fallen auf Deutsch zurück.</span>
+        <span class="muted lang-hint">Felder mit 🌐 gibt es pro Sprache. Leere englische Felder zeigen den deutschen Text als Platzhalter und fallen auf der Website auf Deutsch zurück.</span>
       </div>
     )
   }
@@ -40,12 +41,19 @@ const platforms = (row.platforms ?? []) as Platform[];
         columns(field).map(({ column, lang }) => {
           const value = row[column];
           const id = `f-${column}`;
+          // Translations: the German text is the placeholder and can be copied over.
+          const translatable = lang !== null && lang !== 'de' && ['text', 'textarea', 'markdown'].includes(field.type);
+          const source = translatable ? `f-${field.name}_de` : undefined;
+          const placeholder = translatable ? String(row[`${field.name}_de`] ?? '') : undefined;
           const label = (
-            <label for={id} class="field-label">
-              {field.label}
-              {lang && <span class="lang-tag">🌐 {lang.toUpperCase()}</span>}
-              {field.required && <span class="req">*</span>}
-            </label>
+            <div class="field-label-row">
+              <label for={id} class="field-label">
+                {field.label}
+                {lang && <span class="lang-tag">🌐 {lang.toUpperCase()}</span>}
+                {field.required && <span class="req">*</span>}
+              </label>
+              {translatable && <button type="button" class="copy-de" data-copy-from={source} data-copy-to={id}>Aus Deutsch übernehmen</button>}
+            </div>
           );
           const wrapClass = ['field', `field-${field.type}`, lang ? `lang-field lang-${lang}` : '', lang && lang !== 'de' ? 'is-hidden' : ''];
           return (
@@ -61,7 +69,7 @@ const platforms = (row.platforms ?? []) as Platform[];
                 label
               )}
 
-              {field.type === 'text' && <input id={id} name={column} type="text" value={value ?? ''} required={field.required && lang !== 'en'} pattern={field.name === 'slug' ? '[a-z0-9-]+' : undefined} />}
+              {field.type === 'text' && <input id={id} name={column} type="text" value={value ?? ''} required={field.required && lang !== 'en'} pattern={field.name === 'slug' ? '[a-z0-9-]+' : undefined} placeholder={placeholder} data-translation-of={source} />}
               {field.type === 'url' && <input id={id} name={column} type="url" value={value ?? ''} placeholder="https://" />}
               {field.type === 'number' && <input id={id} name={column} type="number" value={value ?? 0} step="1" />}
               {field.type === 'year' && <input id={id} name={column} type="number" value={value ?? ''} min="1990" max="2100" step="1" placeholder="z. B. 2021" />}
@@ -72,7 +80,7 @@ const platforms = (row.platforms ?? []) as Platform[];
                   <code>{value || '#0071e3'}</code>
                 </div>
               )}
-              {field.type === 'textarea' && <textarea id={id} name={column} rows="3">{value ?? ''}</textarea>}
+              {field.type === 'textarea' && <textarea id={id} name={column} rows="3" placeholder={placeholder} data-translation-of={source}>{value ?? ''}</textarea>}
               {field.type === 'select' && (
                 <select id={id} name={column}>
                   {field.options?.map((o) => <option value={o.value} selected={value === o.value}>{o.label}</option>)}
@@ -86,7 +94,7 @@ const platforms = (row.platforms ?? []) as Platform[];
               )}
               {field.type === 'markdown' && (
                 <div class="md" data-markdown>
-                  <textarea id={id} name={column} rows="14" data-md-input>{value ?? ''}</textarea>
+                  <textarea id={id} name={column} rows="14" data-md-input placeholder={placeholder} data-translation-of={source}>{value ?? ''}</textarea>
                   <div class="md-preview" data-md-preview aria-label="Vorschau"></div>
                 </div>
               )}
@@ -169,6 +177,40 @@ const platforms = (row.platforms ?? []) as Platform[];
     true,
   );
 
+  // Translations: German text as placeholder, copy button, and a count of empty English fields on the tab.
+  const translations = [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-translation-of]')];
+  const sourceOf = (el: HTMLElement) => document.getElementById(el.dataset.translationOf!) as HTMLInputElement | HTMLTextAreaElement | null;
+  const emptyCount = document.querySelector<HTMLElement>('[data-empty-count]');
+  function updateTranslations() {
+    let empty = 0;
+    for (const el of translations) {
+      const german = sourceOf(el)?.value ?? '';
+      el.placeholder = german;
+      if (!el.value.trim() && german.trim()) empty++;
+      const copy = document.querySelector<HTMLButtonElement>(`[data-copy-to="${el.id}"]`);
+      if (copy) copy.disabled = !german.trim() || el.value === german;
+    }
+    if (emptyCount) {
+      emptyCount.hidden = empty === 0;
+      emptyCount.textContent = `${empty} leer`;
+    }
+  }
+  translations.forEach((el) => {
+    el.addEventListener('input', updateTranslations);
+    sourceOf(el)?.addEventListener('input', updateTranslations);
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-copy-from]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const from = document.getElementById(button.dataset.copyFrom!) as HTMLInputElement | null;
+      const to = document.getElementById(button.dataset.copyTo!) as HTMLInputElement | null;
+      if (!from || !to) return;
+      to.value = from.value;
+      to.dispatchEvent(new Event('input', { bubbles: true }));
+      to.focus();
+    }),
+  );
+  updateTranslations();
+
   // Live Markdown preview (content is written by you, so rendering it as HTML is fine)
   document.querySelectorAll<HTMLElement>('[data-markdown]').forEach((wrap) => {
     const input = wrap.querySelector<HTMLTextAreaElement>('[data-md-input]')!;
@@ -207,6 +249,24 @@ const platforms = (row.platforms ?? []) as Platform[];
   .field.is-hidden { display: none; }
   .field-section { margin: 12px 0 0; padding-top: 20px; border-top: 1px solid var(--border); font-size: 17px; }
   .field-label { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  .field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .copy-de {
+    padding: 2px 10px;
+    border: 1px solid var(--border);
+    border-radius: 980px;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .copy-de:hover:not(:disabled) { border-color: var(--accent); }
+  .copy-de:disabled { color: var(--muted); cursor: default; opacity: 0.6; }
+  .empty-count { margin-left: 6px; padding: 1px 7px; border-radius: 980px; background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); font-size: 11px; font-weight: 600; }
+  .empty-count[hidden] { display: none; }
+  .lang-tabs button[aria-selected='true'] .empty-count { background: var(--warn); color: var(--bg); }
+  ::placeholder { color: color-mix(in srgb, var(--muted) 75%, transparent); }
   .lang-tag { font-size: 11px; font-weight: 600; color: var(--muted); }
   .req { color: var(--danger); }
   .help { margin: 0; color: var(--muted); font-size: 12px; }

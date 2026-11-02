@@ -20,8 +20,12 @@ export default defineConfig({
       SUPABASE_URL: secret(),
       // Supabase secret / service_role key
       SUPABASE_SERVICE_ROLE_KEY: secret(),
-      // Cloudflare Pages deploy hook
+      // Cloudflare Workers Builds deploy hook
       CF_DEPLOY_HOOK_URL: secret(),
+      // Optional, for the build status: Cloudflare account ID, API token (read builds) and Worker name
+      CF_ACCOUNT_ID: secret(),
+      CF_API_TOKEN: secret(),
+      CF_WORKER_NAME: secret(),
       // Public website URL
       SITE_URL: secret(),
       // Login password hash (npm run hash-password -w dashboard)
@@ -30,7 +34,7 @@ export default defineConfig({
       DASHBOARD_SESSION_SECRET: secret(),
       // Comma-separated host:port values the dashboard answers to
       DASHBOARD_ALLOWED_HOSTS: secret(),
-      // Directory for local state (deploy timestamp)
+      // Directory for local state (site preview)
       DASHBOARD_DATA_DIR: secret(),
     },
     validateSecrets: false,

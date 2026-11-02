@@ -8,20 +8,48 @@ import {
   PROJECT_STATUSES,
 } from '@lightning/shared';
 
-// Content is read once at build time with the public (read-only) key.
-// RLS guarantees only published rows are returned.
-const url = import.meta.env.SUPABASE_URL;
-const key = import.meta.env.SUPABASE_ANON_KEY;
-if (!url || !key) {
-  throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set (see site/.env.example).');
-}
-const supabase = createClient(url, key, { auth: { persistSession: false } });
+import { readFile } from 'node:fs/promises';
 
-async function fetchTable(table: string, idField: 'slug' | 'id' = 'slug') {
-  const { data, error } = await supabase.from(table).select('*').order('sort_order');
-  if (error) throw new Error(`Supabase: loading "${table}" failed: ${error.message}`);
+// The website shows the newest release: a fixed state written by the dashboard's "Publish".
+// Edits in the content tables stay invisible until they are published.
+// The dashboard's preview passes the content as a file instead (PREVIEW_CONTENT_FILE).
+type Rows = Record<string, unknown>[];
+interface Release {
+  id: number | null;
+  created_at: string;
+  content: Record<'apps' | 'features' | 'projects' | 'news', Rows>;
+}
+
+let release: Promise<Release> | undefined;
+
+async function fetchRelease(): Promise<Release> {
+  const previewFile = process.env.PREVIEW_CONTENT_FILE;
+  if (previewFile) return JSON.parse(await readFile(previewFile, 'utf8')) as Release;
+
+  const url = import.meta.env.SUPABASE_URL;
+  const key = import.meta.env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set (see site/.env.example).');
+  }
+  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const { data, error } = await supabase
+    .from('releases')
+    .select('id, created_at, content')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Supabase: loading the release failed: ${error.message}`);
+  if (!data) throw new Error('Supabase: no release yet. Publish once from the dashboard.');
+  return data as Release;
+}
+
+async function rows(key: keyof Release['content'], idField: 'slug' | 'id' = 'slug') {
+  release ??= fetchRelease();
+  const list = (await release).content[key] ?? [];
   // `uuid` keeps the database id for relations; `id` is the collection key (the slug for pages).
-  return (data ?? []).map((row) => ({ ...row, uuid: row.id, id: String(row[idField]) }));
+  return [...list]
+    .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0))
+    .map((row) => ({ ...row, uuid: String(row.id), id: String(row[idField]) }));
 }
 
 const archive = {
@@ -40,7 +68,7 @@ const base = {
 };
 
 const apps = defineCollection({
-  loader: () => fetchTable('apps'),
+  loader: () => rows('apps'),
   schema: z.object({
     ...base,
     slug: z.string(),
@@ -65,7 +93,7 @@ const apps = defineCollection({
 });
 
 const features = defineCollection({
-  loader: () => fetchTable('app_features', 'id'),
+  loader: () => rows('features', 'id'),
   schema: z.object({
     ...base,
     app_id: z.string(),
@@ -78,7 +106,7 @@ const features = defineCollection({
 });
 
 const projects = defineCollection({
-  loader: () => fetchTable('projects'),
+  loader: () => rows('projects'),
   schema: z.object({
     ...base,
     slug: z.string(),
@@ -92,7 +120,7 @@ const projects = defineCollection({
 });
 
 const news = defineCollection({
-  loader: () => fetchTable('news'),
+  loader: () => rows('news'),
   schema: z.object({
     ...base,
     slug: z.string(),
@@ -109,4 +137,14 @@ const news = defineCollection({
   }),
 });
 
-export const collections = { apps, features, projects, news };
+// Which release this build shows (written to /build.json for the dashboard).
+const meta = defineCollection({
+  loader: async () => {
+    release ??= fetchRelease();
+    const { id, created_at } = await release;
+    return [{ id: 'release', release_id: id, created_at }];
+  },
+  schema: z.object({ id: z.string(), release_id: z.number().nullable(), created_at: z.string() }),
+});
+
+export const collections = { apps, features, projects, news, meta };

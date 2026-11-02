@@ -1,0 +1,113 @@
+---
+// Details of one open change, loaded into the change list overlay.
+import { ENTITIES, PLATFORM_STATE_LABELS, getEntity } from '../../../lib/entities';
+import { getChangeDetail, type FieldChange } from '../../../lib/publish';
+import { mediaPublicUrl } from '../../../lib/server';
+import { wordDiff } from '../../../lib/textdiff';
+import type { Platform } from '@lightning/shared';
+
+export const partial = true;
+
+const entity = getEntity(Astro.params.entity);
+const detail = entity ? await getChangeDetail(entity.key, Astro.params.id!) : null;
+if (!entity || !detail) {
+  return new Response('<p class="muted">Diese Änderung gibt es nicht mehr – vielleicht wurde sie gerade veröffentlicht oder verworfen.</p>', {
+    status: 404,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
+const { entry, live, fields, apps } = detail;
+
+const KIND = { new: 'Neu', changed: 'Geändert', deleted: 'Gelöscht' } as const;
+const DISCARD = {
+  new: { label: 'Verwerfen', confirm: `Den neuen Eintrag „${entry.title}“ löschen? Das lässt sich nicht rückgängig machen.` },
+  changed: { label: 'Änderungen verwerfen', confirm: `Alle Änderungen an „${entry.title}“ verwerfen und den veröffentlichten Stand wiederherstellen?` },
+  deleted: { label: 'Wiederherstellen', confirm: `„${entry.title}“ wiederherstellen?` },
+}[entry.kind];
+
+const empty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+
+function text(field: FieldChange, value: unknown): string {
+  if (empty(value)) return '—';
+  switch (field.type) {
+    case 'checkbox':
+      return value ? 'Ja' : 'Nein';
+    case 'app':
+      return apps.get(String(value)) ?? String(value);
+    case 'select':
+      return ENTITIES[entry.entity].fields.find((f) => f.name === field.column)?.options?.find((o) => o.value === value)?.label ?? String(value);
+    case 'platforms':
+      return (value as Platform[]).map((p) => `${p.name} (${PLATFORM_STATE_LABELS[p.state]})`).join(', ');
+    default:
+      return typeof value === 'string' ? value : JSON.stringify(value);
+  }
+}
+
+const isText = (f: FieldChange) => ['text', 'textarea', 'markdown', 'url'].includes(f.type);
+---
+
+<div class="detail" data-detail-root>
+  <div class="detail-head">
+    <span class:list={['kind', `kind-${entry.kind}`]}>{KIND[entry.kind]}</span>
+    <div>
+      <p class="detail-type">{entity.singular}{entry.context && ` · ${entry.context}`}</p>
+      <h3>{entry.title}</h3>
+    </div>
+  </div>
+  <p class="muted detail-note">
+    {
+      live
+        ? entry.kind === 'new'
+          ? 'Erscheint nach dem Veröffentlichen neu auf der Website.'
+          : entry.kind === 'deleted'
+            ? 'Verschwindet nach dem Veröffentlichen von der Website.'
+            : 'Links der veröffentlichte Stand, rechts der aktuelle.'
+        : 'Entwurf: ändert die Website nicht und wird beim Veröffentlichen einfach mit übernommen.'
+    }
+  </p>
+
+  <div class="diff">
+    {
+      fields.map((field) => {
+        const segments = entry.kind === 'changed' && isText(field) && typeof field.before === 'string' && typeof field.after === 'string' && field.before && field.after
+          ? wordDiff(field.before, field.after)
+          : null;
+        return (
+          <section class="diff-field">
+            <h4>{field.label}</h4>
+            {segments ? (
+              <p class="diff-inline">
+                {segments.map((s) => (s.type === 'same' ? s.text : s.type === 'add' ? <ins>{s.text}</ins> : <del>{s.text}</del>))}
+              </p>
+            ) : field.type === 'image' ? (
+              <div class="diff-cols">
+                {entry.kind !== 'new' && <div>{field.before ? <img src={mediaPublicUrl(String(field.before))} alt="Vorher" /> : <span class="muted">kein Bild</span>}</div>}
+                {entry.kind !== 'deleted' && <div>{field.after ? <img src={mediaPublicUrl(String(field.after))} alt="Nachher" /> : <span class="muted">kein Bild</span>}</div>}
+              </div>
+            ) : field.type === 'color' ? (
+              <div class="diff-cols">
+                {entry.kind !== 'new' && <div class="swatch-row"><span class="swatch" style={`background:${field.before}`}></span>{text(field, field.before)}</div>}
+                {entry.kind !== 'deleted' && <div class="swatch-row"><span class="swatch" style={`background:${field.after}`}></span>{text(field, field.after)}</div>}
+              </div>
+            ) : (
+              <div class="diff-cols">
+                {entry.kind !== 'new' && <div class:list={['diff-value', { 'diff-before': entry.kind === 'changed' }]}>{text(field, field.before)}</div>}
+                {entry.kind !== 'deleted' && <div class:list={['diff-value', { 'diff-after': entry.kind === 'changed' }]}>{text(field, field.after)}</div>}
+              </div>
+            )}
+          </section>
+        );
+      })
+    }
+    {fields.length === 0 && <p class="muted">Keine inhaltlichen Felder.</p>}
+  </div>
+
+  <div class="detail-actions">
+    {entry.href && <a class="btn" href={entry.href}>Bearbeiten</a>}
+    <form method="post" action="/api/discard" data-confirm={DISCARD.confirm}>
+      <input type="hidden" name="entity" value={entry.entity} />
+      <input type="hidden" name="id" value={entry.id} />
+      <button class="btn btn-danger" type="submit">{DISCARD.label}</button>
+    </form>
+  </div>
+</div>
