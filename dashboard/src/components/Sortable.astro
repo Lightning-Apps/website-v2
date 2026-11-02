@@ -1,6 +1,7 @@
 ---
 // Makes table bodies with data-sortable="<entity>" reorderable (drag, arrow keys, up/down buttons)
 // and saves the order automatically. Include once per page, next to the table.
+// With data-sort-save="form" the order is only changed on the page and saved with the surrounding form.
 ---
 
 <p class="sort-status" data-sort-status role="status" aria-live="polite"></p>
@@ -24,6 +25,7 @@
         const num = row.querySelector('[data-order-num]');
         if (num) num.textContent = String(i + 1);
       });
+      if (body.dataset.sortSave === 'form') return setStatus('Reihenfolge geändert – mit „Speichern“ übernehmen.');
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(save, 450);
     }

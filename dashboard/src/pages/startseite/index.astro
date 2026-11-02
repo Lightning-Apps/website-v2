@@ -1,39 +1,64 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import SortHandle from '../../components/SortHandle.astro';
+import Sortable from '../../components/Sortable.astro';
 import { configError, db, mediaPublicUrl } from '../../lib/server';
+import { byHomeOrder } from '@lightning/shared';
 
 const setupError = configError();
 let error: string | null = setupError;
-const saved = Astro.url.searchParams.get('saved') === '1';
+const notice = { saved: 'Gespeichert.', reset: 'Die Startseite folgt wieder der Reihenfolge der Apps.' }[Astro.url.searchParams.get('done') ?? ''];
 
-type HomeApp = { id: string; name: string; icon_path: string | null; published: boolean; featured: boolean; show_on_home: boolean };
+type HomeApp = {
+  id: string;
+  name: string;
+  icon_path: string | null;
+  published: boolean;
+  featured: boolean;
+  show_on_home: boolean;
+  sort_order: number;
+  home_sort_order: number | null;
+};
 const load = async () =>
-  ((await db().from('apps').select('id, name, icon_path, published, featured, show_on_home').eq('archived', false).order('sort_order')).data ?? []) as HomeApp[];
+  ((await db().from('apps').select('id, name, icon_path, published, featured, show_on_home, sort_order, home_sort_order').eq('archived', false)).data ??
+    []) as HomeApp[];
 
 if (!setupError && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
+  const reset = form.get('_action') === 'reset';
   const featuredId = String(form.get('featured') ?? '');
   const shown = new Set(form.getAll('show').map(String));
+  const order = form.getAll('order').map(String);
   try {
     const apps = await load();
+    const appOrder = [...apps].sort((a, b) => a.sort_order - b.sort_order).map((a) => a.id);
+    // An own order is only stored once it differs from the apps list (or one exists already).
+    const ownOrder = !reset && (apps.some((a) => a.home_sort_order !== null) || order.join() !== appOrder.join());
+    const position = (id: string) => (ownOrder && order.includes(id) ? order.indexOf(id) + 1 : null);
     // Only touch rows that actually change, so untouched apps don't show up as changes.
     const updates = apps
-      .map((app) => ({ app, values: { featured: app.id === featuredId, show_on_home: shown.has(app.id) } }))
-      .filter(({ app, values }) => app.featured !== values.featured || app.show_on_home !== values.show_on_home);
+      .map((app) => ({
+        app,
+        values: reset
+          ? { home_sort_order: null }
+          : { featured: app.id === featuredId, show_on_home: shown.has(app.id), home_sort_order: position(app.id) },
+      }))
+      .filter(({ app, values }) => Object.entries(values).some(([k, v]) => app[k as keyof HomeApp] !== v));
     // Unfeature first: at most one app may be featured at any time.
-    updates.sort((a, b) => Number(a.values.featured) - Number(b.values.featured));
+    updates.sort((a, b) => Number('featured' in a.values && a.values.featured) - Number('featured' in b.values && b.values.featured));
     for (const { app, values } of updates) {
       const { error: saveError } = await db().from('apps').update(values).eq('id', app.id);
       if (saveError) throw new Error(saveError.message);
     }
-    return Astro.redirect('/startseite/?saved=1', 303);
+    return Astro.redirect(`/startseite/?done=${reset ? 'reset' : 'saved'}`, 303);
   } catch (e) {
     error = (e as Error).message;
   }
 }
 
-const apps = setupError ? [] : await load();
+const apps = setupError ? [] : (await load()).sort(byHomeOrder);
 const featured = apps.find((a) => a.featured);
+const hasOwnOrder = apps.some((a) => a.home_sort_order !== null);
 ---
 
 <DashboardLayout title="Startseite">
@@ -41,7 +66,7 @@ const featured = apps.find((a) => a.featured);
     <h1>Startseite</h1>
   </div>
 
-  {saved && <p class="notice notice-ok">Gespeichert. Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
+  {notice && <p class="notice notice-ok">{notice} Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
   {error && <p class="notice notice-error">{error}</p>}
 
   {
@@ -62,31 +87,64 @@ const featured = apps.find((a) => a.featured);
         </section>
 
         <section class="panel">
-          <h2>Apps auf der Startseite</h2>
+          <div class="list-head">
+            <h2>Apps auf der Startseite</h2>
+            {hasOwnOrder ? (
+              <button
+                class="btn"
+                type="submit"
+                name="_action"
+                value="reset"
+                data-confirm="Eigene Reihenfolge verwerfen und die Reihenfolge der Apps übernehmen?"
+              >
+                Reihenfolge der Apps übernehmen
+              </button>
+            ) : (
+              <span class="muted order-state">Reihenfolge wie unter Apps</span>
+            )}
+          </div>
           <p class="muted hint">
-            Ausgeschaltete Apps bleiben in der Navigation und unter „Alle Apps“ erreichbar. Die Reihenfolge stellst du unter <a href="/apps/">Apps</a> ein, archivierte
-            Apps stehen nie auf der Startseite.
+            Ziehe die Apps in die Reihenfolge, in der sie auf der Startseite erscheinen sollen. Ausgeschaltete Apps bleiben in der Navigation und unter
+            „Alle Apps“ erreichbar, archivierte Apps stehen nie auf der Startseite.
           </p>
           {apps.length === 0 ? (
             <p class="muted">Noch keine Apps.</p>
           ) : (
-            <ul class="home-list">
-              {apps.map((app) => {
-                const icon = mediaPublicUrl(app.icon_path);
-                return (
-                  <li>
-                    <label class="home-row">
-                      {icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}
-                      <span class="home-name">
-                        <strong>{app.name}</strong>
-                        {!app.published && <span class="pill pill-draft">Entwurf</span>}
-                      </span>
-                      <input class="switch" type="checkbox" name="show" value={app.id} checked={app.show_on_home} aria-label={`${app.name} auf der Startseite zeigen`} />
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              {apps.length > 1 && <Sortable />}
+              <table>
+                <tbody data-sortable="apps" data-sort-save="form">
+                  {apps.map((app) => {
+                    const icon = mediaPublicUrl(app.icon_path);
+                    return (
+                      <tr data-id={app.id}>
+                        <td class="sort-cell">
+                          <SortHandle title={app.name} />
+                          <input type="hidden" name="order" value={app.id} />
+                        </td>
+                        <td class="icon-cell">{icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}</td>
+                        <td>
+                          <span class="home-name">
+                            <strong>{app.name}</strong>
+                            {!app.published && <span class="pill pill-draft">Entwurf</span>}
+                          </span>
+                        </td>
+                        <td class="switch-cell">
+                          <input
+                            class="switch"
+                            type="checkbox"
+                            name="show"
+                            value={app.id}
+                            checked={app.show_on_home}
+                            aria-label={`${app.name} auf der Startseite zeigen`}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </section>
 
@@ -100,13 +158,15 @@ const featured = apps.find((a) => a.featured);
 
 <style>
   .hint { margin: -6px 0 14px; }
+  .list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .list-head h2 { margin: 0; }
+  .order-state { font-size: 13px; }
   .select { font: inherit; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-width: min(100%, 360px); }
-  .home-list { list-style: none; margin: 0; padding: 0; }
-  .home-list li + li { border-top: 1px solid var(--border); }
-  .home-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
-  .home-row .thumb { display: inline-block; flex: none; }
-  .home-name { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .switch { appearance: none; flex: none; width: 42px; height: 26px; margin: 0; border-radius: 13px; background: var(--border); position: relative; cursor: pointer; transition: background 0.2s; }
+  .icon-cell { width: 1%; padding-right: 0; }
+  .icon-cell .thumb { display: block; }
+  .home-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .switch-cell { width: 1%; text-align: right; }
+  .switch { appearance: none; display: block; width: 42px; height: 26px; margin: 0; border-radius: 13px; background: var(--border); position: relative; cursor: pointer; transition: background 0.2s; }
   .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); transition: transform 0.2s; }
   .switch:checked { background: var(--ok); }
   .switch:checked::after { transform: translateX(16px); }

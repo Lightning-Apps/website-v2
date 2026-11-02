@@ -6,14 +6,14 @@ import ProjectCard from '../../components/ProjectCard.astro';
 import NewsCard from '../../components/NewsCard.astro';
 import { getApps, getNews, getProjects, media } from '../../lib/content';
 import { localeStaticPaths, localizePath, useTranslations, type Locale } from '../../i18n/ui';
-import { pick } from '@lightning/shared';
+import { byHomeOrder, pick } from '@lightning/shared';
 
 export const getStaticPaths = localeStaticPaths;
 
 const lang = Astro.params.lang as Locale;
 const t = useTranslations(lang);
 const [apps, projects, news] = await Promise.all([getApps(), getProjects(), getNews()]);
-const homeApps = apps.filter((a) => a.show_on_home);
+const homeApps = apps.filter((a) => a.show_on_home).sort(byHomeOrder);
 const featured = apps.find((a) => a.featured) ?? homeApps[0] ?? apps[0];
 const latestNews = news.slice(0, 3);
 const heroImage = featured ? media(featured.hero_path) : null;

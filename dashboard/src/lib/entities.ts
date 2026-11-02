@@ -155,6 +155,7 @@ export const ENTITIES: Record<EntityKey, Entity> = {
       { name: 'accent_color', label: 'Akzentfarbe', type: 'color' },
       { name: 'featured', label: 'Auf der Startseite präsentiert', type: 'checkbox', formHidden: true },
       { name: 'show_on_home', label: 'Auf der Startseite gezeigt', type: 'checkbox', formHidden: true },
+      { name: 'home_sort_order', label: 'Reihenfolge auf der Startseite', type: 'count', formHidden: true },
       sortOrder,
       published,
       ...pricingFields,

@@ -64,6 +64,8 @@ export interface AppRow extends Row, Archivable {
   featured: boolean;
   /** Shown as a tile on the homepage; always listed in the navigation and on the apps page. */
   show_on_home: boolean;
+  /** Own position among the homepage tiles; null = the order of the apps list. */
+  home_sort_order: number | null;
   /** Purchase price in euros; null = free download. */
   price_eur: number | null;
   has_iap: boolean;
@@ -150,4 +152,9 @@ export function pick<T extends object>(row: T, field: string, lang: Locale): str
 /** "4,99 €" / "€4.99". */
 export function formatPrice(eur: number, lang: Locale): string {
   return new Intl.NumberFormat(lang === 'de' ? 'de-DE' : 'en-IE', { style: 'currency', currency: 'EUR' }).format(eur);
+}
+
+/** Homepage tile order: the own order once one is set (apps without a position go last), otherwise the apps list order. */
+export function byHomeOrder<T extends { sort_order: number; home_sort_order: number | null }>(a: T, b: T): number {
+  return (a.home_sort_order ?? Infinity) - (b.home_sort_order ?? Infinity) || a.sort_order - b.sort_order;
 }
