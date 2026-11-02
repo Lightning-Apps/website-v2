@@ -7,13 +7,18 @@ interface Props {
 }
 const { title } = Astro.props;
 const path = Astro.url.pathname;
+const entities = Object.values(ENTITIES);
 const nav = [
-  { href: '/', label: 'Übersicht' },
-  ...Object.values(ENTITIES)
-    .filter((e) => !e.nested)
-    .map((e) => ({ href: `/${e.key}/`, label: e.label })),
+  { href: '/', label: 'Übersicht', children: [] as { href: string; label: string }[] },
+  ...entities
+    .filter((e) => !e.parent)
+    .map((e) => ({
+      href: `/${e.key}/`,
+      label: e.label,
+      children: entities.filter((c) => c.parent === e.key).map((c) => ({ href: `/${c.key}/`, label: c.label })),
+    })),
 ];
-const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href) || (href === '/apps/' && path.startsWith('/features/')));
+const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
 ---
 
 <!doctype html>
@@ -33,7 +38,19 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
       </a>
       <p class="brand-sub">Dashboard · lokal</p>
       <nav>
-        {nav.map((item) => <a href={item.href} class:list={{ active: isActive(item.href) }}>{item.label}</a>)}
+        {
+          nav.map((item) => {
+            const childActive = item.children.some((c) => isActive(c.href));
+            return (
+              <>
+                <a href={item.href} class:list={{ active: isActive(item.href), 'parent-active': childActive }}>{item.label}</a>
+                {item.children.map((child) => (
+                  <a href={child.href} class:list={['sub', { active: isActive(child.href) }]}>{child.label}</a>
+                ))}
+              </>
+            );
+          })
+        }
       </nav>
       <form method="post" action="/api/deploy" class="deploy-form" data-confirm="Alle offenen Änderungen veröffentlichen und die Website neu bauen?">
         <button class="btn btn-primary btn-block" type="submit">Website veröffentlichen</button>
@@ -125,6 +142,10 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
   .sidebar nav a { padding: 8px 10px; border-radius: 8px; color: var(--text); font-weight: 500; }
   .sidebar nav a:hover { background: color-mix(in srgb, var(--text) 6%, transparent); text-decoration: none; }
   .sidebar nav a.active { background: var(--accent); color: #fff; }
+  .sidebar nav a.parent-active { color: var(--accent); }
+  .sidebar nav a.sub { position: relative; margin-left: 18px; padding: 6px 10px; font-size: 13px; color: var(--muted); }
+  .sidebar nav a.sub::before { content: ''; position: absolute; left: -8px; top: -8px; bottom: calc(50% - 1px); width: 8px; border-left: 1.5px solid var(--border); border-bottom: 1.5px solid var(--border); border-bottom-left-radius: 7px; }
+  .sidebar nav a.sub.active { color: #fff; }
   .deploy-form { margin-top: auto; margin-bottom: 6px; }
 
   .main { padding: 32px 40px 64px; max-width: 1100px; width: 100%; }

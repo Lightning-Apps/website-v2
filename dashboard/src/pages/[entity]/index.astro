@@ -7,7 +7,7 @@ import { getEntity } from '../../lib/entities';
 import { configError, db, formatDateTime, mediaPublicUrl } from '../../lib/server';
 
 const entity = getEntity(Astro.params.entity);
-if (!entity || entity.nested) return new Response('Not found', { status: 404 });
+if (!entity) return new Response('Not found', { status: 404 });
 
 const setupError = configError();
 let rows: Record<string, any>[] = [];

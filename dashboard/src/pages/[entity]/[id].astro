@@ -16,8 +16,11 @@ const isNew = id === 'new';
 let row: Record<string, any> = {};
 let error: string | null = setupError;
 let saved = Astro.url.searchParams.get('saved') === '1';
-// Where a nested entity (features) returns to after saving/deleting.
-const backTo = entity.key === 'features' ? (appId: string) => `/apps/${appId}` : () => `/${entity.key}/`;
+// Features can be opened from their app or from the features list; `back` remembers which (local paths only).
+const backParam = Astro.url.searchParams.get('back');
+const back = backParam && backParam.startsWith('/') && !backParam.startsWith('//') ? backParam : null;
+const backTo = entity.key === 'features' ? (appId: string) => back ?? `/apps/${appId}` : () => `/${entity.key}/`;
+const keepBack = back ? `&back=${encodeURIComponent(back)}` : '';
 
 if (!setupError && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -29,7 +32,7 @@ if (!setupError && Astro.request.method === 'POST') {
       const { error: delError } = await db().from(entity.table).delete().eq('id', id);
       if (delError) throw new Error(delError.message);
       const name = existing?.[entity.titleField] ?? entity.singular;
-      const target = entity.key === 'features' ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
+      const target = entity.key === 'features' && !back ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
       return Astro.redirect(target, 303);
     }
     const values = await formToRow(entity, form);
@@ -38,7 +41,7 @@ if (!setupError && Astro.request.method === 'POST') {
       : db().from(entity.table).update(values).eq('id', id).select().single();
     const { data, error: saveError } = await query;
     if (saveError) throw new Error(saveError.code === '23505' ? 'Dieser Slug ist schon vergeben.' : saveError.message);
-    return Astro.redirect(`/${entity.key}/${data.id}?saved=1`, 303);
+    return Astro.redirect(`/${entity.key}/${data.id}?saved=1${keepBack}`, 303);
   } catch (e) {
     error = (e as Error).message;
     // Re-show what was typed (images and platforms are re-read from the database below).
@@ -78,8 +81,11 @@ const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app
 <DashboardLayout title={title}>
   <p class="crumbs">
     {
-      parentApp ? (
-        <a href={`/apps/${parentApp.id}`}>← {parentApp.name}</a>
+      entity.key === 'features' ? (
+        <>
+          <a href={back ?? (parentApp ? `/apps/${parentApp.id}` : '/features/')}>← {back || !parentApp ? 'Funktionen' : parentApp.name}</a>
+          {parentApp && (back ? <a class="crumb-alt" href={`/apps/${parentApp.id}`}>App „{parentApp.name}“ öffnen</a> : <a class="crumb-alt" href="/features/">Alle Funktionen</a>)}
+        </>
       ) : (
         <a href={`/${entity.key}/`}>← {entity.label}</a>
       )
@@ -129,7 +135,8 @@ const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app
 </DashboardLayout>
 
 <style>
-  .crumbs { margin: 0 0 8px; }
+  .crumbs { margin: 0 0 8px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .crumb-alt { color: var(--muted); }
   .features { margin-top: 32px; }
   .features .page-head { margin-bottom: 8px; }
 </style>

@@ -1,0 +1,127 @@
+---
+// All app features in one place, grouped by app; sorting works per app.
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import RowActions from '../../components/RowActions.astro';
+import SortHandle from '../../components/SortHandle.astro';
+import Sortable from '../../components/Sortable.astro';
+import { ENTITIES } from '../../lib/entities';
+import { configError, db, formatDateTime, mediaPublicUrl } from '../../lib/server';
+
+const entity = ENTITIES.features;
+const setupError = configError();
+const filter = Astro.url.searchParams.get('app');
+const deleted = Astro.url.searchParams.get('deleted');
+
+let apps: { id: string; name: string; icon_path: string | null; published: boolean; archived: boolean }[] = [];
+let features: Record<string, any>[] = [];
+let loadError: string | null = null;
+if (!setupError) {
+  const [appsRes, featuresRes] = await Promise.all([
+    db().from('apps').select('id, name, icon_path, published, archived').order('sort_order'),
+    db().from(entity.table).select('*').order('sort_order'),
+  ]);
+  apps = appsRes.data ?? [];
+  features = featuresRes.data ?? [];
+  loadError = appsRes.error?.message ?? featuresRes.error?.message ?? null;
+}
+const groups = apps
+  .filter((app) => !filter || app.id === filter)
+  .map((app) => ({ app, items: features.filter((f) => f.app_id === app.id) }));
+const back = encodeURIComponent(`/features/${filter ? `?app=${filter}` : ''}`);
+---
+
+<DashboardLayout title={entity.label}>
+  <p class="crumbs"><a href="/apps/">Apps</a> › Funktionen</p>
+  <div class="page-head">
+    <h1>{entity.label}</h1>
+    <a class="btn btn-primary" href={`/features/new?back=${back}${filter ? `&app_id=${filter}` : ''}`}>+ {entity.singular} anlegen</a>
+  </div>
+
+  {setupError && <p class="notice notice-error">{setupError}</p>}
+  {loadError && <p class="notice notice-error">Fehler beim Laden: {loadError}</p>}
+  {deleted && <p class="notice notice-ok">„{deleted}“ wurde gelöscht.</p>}
+
+  {
+    apps.length > 1 && (
+      <form class="filter" method="get">
+        <label for="app-filter">App</label>
+        <select id="app-filter" name="app" onchange="this.form.submit()">
+          <option value="">Alle Apps</option>
+          {apps.map((app) => <option value={app.id} selected={app.id === filter}>{app.name} ({features.filter((f) => f.app_id === app.id).length})</option>)}
+        </select>
+        <noscript><button class="btn" type="submit">Anzeigen</button></noscript>
+      </form>
+    )
+  }
+
+  {features.length > 1 && <Sortable />}
+
+  {apps.length === 0 && !setupError && <p class="panel muted">Lege zuerst eine App an.</p>}
+
+  <div class="stack">
+    {
+      groups.map(({ app, items }) => {
+        const icon = mediaPublicUrl(app.icon_path);
+        return (
+          <section class="panel group" id={`app-${app.id}`}>
+            <div class="group-head">
+              <div class="group-title">
+                {icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}
+                <h2><a href={`/apps/${app.id}`}>{app.name}</a></h2>
+                {!app.published && <span class="pill pill-draft">App ist Entwurf</span>}
+                {app.archived && <span class="pill pill-draft">Archiviert</span>}
+              </div>
+              <a class="btn" href={`/features/new?app_id=${app.id}&back=${back}`}>+ Funktion</a>
+            </div>
+            {items.length === 0 ? (
+              <p class="muted empty">Noch keine Funktionen.</p>
+            ) : (
+              <table>
+                <tbody data-sortable="features" data-app-id={app.id}>
+                  {items.map((f) => {
+                    const title = f.title_de || '(ohne Titel)';
+                    const image = mediaPublicUrl(f.image_path);
+                    const href = `/features/${f.id}?back=${back}`;
+                    return (
+                      <tr data-id={f.id}>
+                        <td class="sort-cell"><SortHandle title={title} /></td>
+                        <td class="muted num" data-order-num>{f.sort_order}</td>
+                        <td class="img-cell">{image ? <img class="thumb" src={image} alt="" /> : <span class="thumb" />}</td>
+                        <td>
+                          <a href={href}><strong>{title}</strong></a>
+                          {f.title_en && f.title_en !== f.title_de && <div class="muted">{f.title_en}</div>}
+                          {!f.title_en && <div class="muted missing">Englischer Titel fehlt</div>}
+                        </td>
+                        <td><span class:list={['pill', f.published ? 'pill-published' : 'pill-draft']}>{f.published ? 'Sichtbar' : 'Ausgeblendet'}</span></td>
+                        <td class="muted">{formatDateTime(f.updated_at)}</td>
+                        <td>
+                          <RowActions href={href} title={title} confirm={`Funktion „${title}“ endgültig löschen?`} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </section>
+        );
+      })
+    }
+  </div>
+</DashboardLayout>
+
+<style>
+  .crumbs { margin: 0 0 8px; color: var(--muted); }
+  .filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .filter label { font-weight: 600; }
+  .filter select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; min-width: 220px; }
+  .group { padding-bottom: 8px; }
+  .group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .group-title { display: flex; align-items: center; gap: 10px; }
+  .group-title h2 { margin: 0; }
+  .group-title h2 a { color: var(--text); }
+  .empty { margin: 4px 0 12px; }
+  .num { width: 1%; }
+  .img-cell { width: 1%; }
+  .missing { color: var(--warn); font-size: 12px; }
+</style>

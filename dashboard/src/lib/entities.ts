@@ -43,8 +43,8 @@ export interface Entity {
   titleField: string;
   orderBy: { column: string; ascending: boolean };
   fields: Field[];
-  /** Hidden from the sidebar (edited from another entity's page). */
-  nested?: boolean;
+  /** Shown as a sub-item of this entity in the sidebar. */
+  parent?: EntityKey;
 }
 
 export type EntityKey = 'news' | 'apps' | 'projects' | 'features';
@@ -135,7 +135,8 @@ export const ENTITIES: Record<EntityKey, Entity> = {
     singular: 'Funktion',
     titleField: 'title_de',
     orderBy: { column: 'sort_order', ascending: true },
-    nested: true,
+    // Own list page (src/pages/features/index.astro), grouped by app.
+    parent: 'apps',
     fields: [
       { name: 'app_id', label: 'App', type: 'app', required: true },
       { name: 'title', label: 'Titel', type: 'text', i18n: true, required: true },

@@ -23,8 +23,8 @@ if (!setupError) {
   changelog = await getChangelog();
   counts = await Promise.all(
     Object.values(ENTITIES)
-      .filter((e) => !e.nested)
-      .map(async (e) => {
+      .filter((e) => !e.parent)
+            .map(async (e) => {
         const [{ count: total }, { count: drafts }] = await Promise.all([
           db().from(e.table).select('id', { count: 'exact', head: true }),
           db().from(e.table).select('id', { count: 'exact', head: true }).eq('published', false),
