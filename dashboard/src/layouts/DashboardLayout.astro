@@ -110,7 +110,7 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
   body {
     margin: 0;
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr);
     min-height: 100vh;
     font-family: var(--font);
     font-size: 14px;

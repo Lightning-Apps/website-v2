@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { getEntity } from '../../lib/entities';
 import { db } from '../../lib/server';
 
-const SORTABLE = new Set(['apps', 'projects', 'features']);
+const SORTABLE = new Set(['apps', 'projects', 'features', 'plans']);
 
 /**
  * Saves a new order: body { entity, ids, appId? } with ids in display order.
@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   let query = db().from(entity.table).select('id, sort_order');
-  if (entity.key === 'features') {
+  if (entity.parent === 'apps') {
     if (!payload.appId) return json(400, { error: 'App fehlt.' });
     query = query.eq('app_id', payload.appId);
   }

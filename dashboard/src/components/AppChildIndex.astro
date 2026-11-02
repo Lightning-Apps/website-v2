@@ -1,0 +1,97 @@
+---
+// List page of an app's sub-entries (features, plans), grouped by app; sorting works per app.
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import ChildList from './ChildList.astro';
+import Sortable from './Sortable.astro';
+import type { Entity } from '../lib/entities';
+import { configError, db, mediaPublicUrl } from '../lib/server';
+
+interface Props {
+  entity: Entity;
+}
+const { entity } = Astro.props;
+const setupError = configError();
+const filter = Astro.url.searchParams.get('app');
+const deleted = Astro.url.searchParams.get('deleted');
+
+let apps: { id: string; name: string; icon_path: string | null; published: boolean; archived: boolean }[] = [];
+let rows: Record<string, any>[] = [];
+let loadError: string | null = null;
+if (!setupError) {
+  const [appsRes, rowsRes] = await Promise.all([
+    db().from('apps').select('id, name, icon_path, published, archived').order('sort_order'),
+    db().from(entity.table).select('*').order('sort_order'),
+  ]);
+  apps = appsRes.data ?? [];
+  rows = rowsRes.data ?? [];
+  loadError = appsRes.error?.message ?? rowsRes.error?.message ?? null;
+}
+const groups = apps
+  .filter((app) => !filter || app.id === filter)
+  .map((app) => ({ app, items: rows.filter((r) => r.app_id === app.id) }));
+const back = `/${entity.key}/${filter ? `?app=${filter}` : ''}`;
+const backParam = encodeURIComponent(back);
+---
+
+<DashboardLayout title={entity.label}>
+  <p class="crumbs"><a href="/apps/">Apps</a> › {entity.label}</p>
+  <div class="page-head">
+    <h1>{entity.label}</h1>
+    <a class="btn btn-primary" href={`/${entity.key}/new?back=${backParam}${filter ? `&app_id=${filter}` : ''}`}>+ {entity.singular} anlegen</a>
+  </div>
+
+  {setupError && <p class="notice notice-error">{setupError}</p>}
+  {loadError && <p class="notice notice-error">Fehler beim Laden: {loadError}</p>}
+  {deleted && <p class="notice notice-ok">„{deleted}“ wurde gelöscht.</p>}
+
+  {
+    apps.length > 1 && (
+      <form class="filter" method="get">
+        <label for="app-filter">App</label>
+        <select id="app-filter" name="app" onchange="this.form.submit()">
+          <option value="">Alle Apps</option>
+          {apps.map((app) => <option value={app.id} selected={app.id === filter}>{app.name} ({rows.filter((r) => r.app_id === app.id).length})</option>)}
+        </select>
+        <noscript><button class="btn" type="submit">Anzeigen</button></noscript>
+      </form>
+    )
+  }
+
+  {rows.length > 1 && <Sortable />}
+
+  {apps.length === 0 && !setupError && <p class="panel muted">Lege zuerst eine App an.</p>}
+
+  <div class="stack">
+    {
+      groups.map(({ app, items }) => {
+        const icon = mediaPublicUrl(app.icon_path);
+        return (
+          <section class="panel group" id={`app-${app.id}`}>
+            <div class="group-head">
+              <div class="group-title">
+                {icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}
+                <h2><a href={`/apps/${app.id}`}>{app.name}</a></h2>
+                {!app.published && <span class="pill pill-draft">App ist Entwurf</span>}
+                {app.archived && <span class="pill pill-draft">Archiviert</span>}
+              </div>
+              <a class="btn" href={`/${entity.key}/new?app_id=${app.id}&back=${backParam}`}>+ {entity.singular}</a>
+            </div>
+            <ChildList entity={entity} appId={app.id} rows={items} back={back} showUpdated />
+          </section>
+        );
+      })
+    }
+  </div>
+</DashboardLayout>
+
+<style>
+  .crumbs { margin: 0 0 8px; color: var(--muted); }
+  .filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .filter label { font-weight: 600; }
+  .filter select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; min-width: 220px; }
+  .group { padding-bottom: 8px; }
+  .group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .group-title { display: flex; align-items: center; gap: 10px; }
+  .group-title h2 { margin: 0; }
+  .group-title h2 a { color: var(--text); }
+</style>

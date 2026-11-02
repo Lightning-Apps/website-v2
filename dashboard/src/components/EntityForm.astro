@@ -72,6 +72,13 @@ const platforms = (row.platforms ?? []) as Platform[];
               {field.type === 'text' && <input id={id} name={column} type="text" value={value ?? ''} required={field.required && lang !== 'en'} pattern={field.name === 'slug' ? '[a-z0-9-]+' : undefined} placeholder={placeholder} data-translation-of={source} />}
               {field.type === 'url' && <input id={id} name={column} type="url" value={value ?? ''} placeholder="https://" />}
               {field.type === 'number' && <input id={id} name={column} type="number" value={value ?? 0} step="1" />}
+              {field.type === 'price' && (
+                <div class="price-row">
+                  <input id={id} name={column} type="text" inputmode="decimal" value={value === null || value === undefined ? '' : String(value).replace('.', ',')} required={field.required} pattern="\s*\d+([.,]\d{1,2})?\s*(€)?\s*" placeholder="z. B. 4,99" />
+                  <span class="muted">€</span>
+                </div>
+              )}
+              {field.type === 'count' && <input id={id} name={column} type="number" value={value ?? ''} min="1" step="1" />}
               {field.type === 'year' && <input id={id} name={column} type="number" value={value ?? ''} min="1990" max="2100" step="1" placeholder="z. B. 2021" />}
               {field.type === 'date' && <input id={id} name={column} type="date" value={value ?? new Date().toISOString().slice(0, 10)} required={field.required} />}
               {field.type === 'color' && (
@@ -281,6 +288,8 @@ const platforms = (row.platforms ?? []) as Platform[];
     font: inherit;
   }
   input[type='number'] { max-width: 120px; }
+  .price-row { display: flex; align-items: center; gap: 8px; }
+  .price-row input { max-width: 140px; }
   input[type='date'], select { max-width: 280px; }
   textarea { resize: vertical; line-height: 1.5; }
   input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }

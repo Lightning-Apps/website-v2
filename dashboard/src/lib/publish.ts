@@ -3,10 +3,14 @@
 import { CF_DEPLOY_HOOK_URL } from 'astro:env/server';
 import { LOCALES, MEDIA_BUCKET } from '@lightning/shared';
 import { ENTITIES, type Entity, type EntityKey, type FieldType } from './entities';
+
+/** Entities that belong to an app and only show up together with it. */
+const CHILDREN: EntityKey[] = ['features', 'plans'];
+const isChild = (key: EntityKey) => CHILDREN.includes(key);
 import { db } from './server';
 
 /** Order of the groups in the change list. */
-const ORDER: EntityKey[] = ['news', 'apps', 'features', 'projects'];
+const ORDER: EntityKey[] = ['news', 'apps', 'features', 'plans', 'projects'];
 /** Columns that change on every save and mean nothing to the website. */
 const IGNORED = new Set(['id', 'created_at', 'updated_at']);
 /** Releases kept for history; older ones are deleted on publish. */
@@ -31,7 +35,7 @@ export interface ChangeEntry {
   entity: EntityKey;
   id: string;
   title: string;
-  /** Parent app for features. */
+  /** Parent app for features and plans. */
   context: string | null;
   kind: 'new' | 'changed' | 'deleted';
   /** Labels of the changed fields. */
@@ -60,7 +64,7 @@ export interface FieldChange {
 
 const keyOf = (entity: EntityKey, id: string) => `${entity}:${id}`;
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-const emptyTables = (): Tables => ({ news: [], apps: [], features: [], projects: [] });
+const emptyTables = (): Tables => ({ news: [], apps: [], features: [], plans: [], projects: [] });
 
 export async function loadAll(): Promise<Tables> {
   const entries = await Promise.all(
@@ -93,17 +97,17 @@ function baselineOf(release: Release | null): Tables {
   return { ...emptyTables(), ...(release?.baseline ?? {}) };
 }
 
-/** Whether a row shows up on the website (features also need their app). */
+/** Whether a row shows up on the website (features and plans also need their app). */
 function visible(key: EntityKey, row: Row | undefined, tables: Tables): boolean {
   if (!row?.published) return false;
-  if (key !== 'features') return true;
+  if (!isChild(key)) return true;
   return tables.apps.some((app) => app.id === row.app_id && app.published);
 }
 
 /** What the website shows for a state: published rows only (or everything, for a preview with drafts). */
 export function siteContent(tables: Tables, includeDrafts = false): Tables {
-  const pick = (key: EntityKey) => tables[key].filter((row) => (includeDrafts ? key !== 'features' || tables.apps.some((a) => a.id === row.app_id) : visible(key, row, tables)));
-  return { news: pick('news'), apps: pick('apps'), features: pick('features'), projects: pick('projects') };
+  const pick = (key: EntityKey) => tables[key].filter((row) => (includeDrafts ? !isChild(key) || tables.apps.some((a) => a.id === row.app_id) : visible(key, row, tables)));
+  return Object.fromEntries(ORDER.map((key) => [key, pick(key)])) as Tables;
 }
 
 /** Database columns with readable labels, e.g. title_en → "Titel (EN)". */
@@ -149,7 +153,7 @@ function diff(baseline: Tables, current: Tables): Omit<Changelog, 'release'> {
         entity: key,
         id,
         title: String(shown[entity.titleField] || '(ohne Titel)'),
-        context: key === 'features' ? (appNames.get(String(shown.app_id)) ?? null) : null,
+        context: isChild(key) ? (appNames.get(String(shown.app_id)) ?? null) : null,
         kind,
         fields,
         href: row ? `/${key}/${id}` : null,
@@ -160,19 +164,19 @@ function diff(baseline: Tables, current: Tables): Omit<Changelog, 'release'> {
     }
   }
 
-  // Dependencies: a feature of an app that is not on the website yet needs that app;
-  // deleting an app also deletes its features.
+  // Dependencies: a feature or plan of an app that is not on the website yet needs that app;
+  // deleting an app also deletes its features and plans.
   const byKey = new Map(entries.map((e) => [e.key, e]));
   for (const entry of entries) {
-    if (entry.entity === 'features' && entry.kind !== 'deleted') {
-      const appId = String(current.features.find((f) => f.id === entry.id)?.app_id);
+    if (isChild(entry.entity) && entry.kind !== 'deleted') {
+      const appId = String(current[entry.entity].find((f) => f.id === entry.id)?.app_id);
       const appEntry = byKey.get(keyOf('apps', appId));
       if (appEntry && !visible('apps', baseline.apps.find((a) => a.id === appId), baseline)) entry.requires.push(appEntry.key);
     }
     if (entry.entity === 'apps' && entry.kind === 'deleted') {
       entry.requires.push(
         ...entries
-          .filter((e) => e.entity === 'features' && e.kind === 'deleted' && baseline.features.find((f) => f.id === e.id)?.app_id === entry.id)
+          .filter((e) => isChild(e.entity) && e.kind === 'deleted' && baseline[e.entity].find((f) => f.id === e.id)?.app_id === entry.id)
           .map((e) => e.key),
       );
     }
@@ -229,7 +233,7 @@ export async function publish(selection: string[] | null): Promise<{ published: 
   const chosen = selection ? withDependencies(new Set(selection), entries) : new Set(entries.map((e) => e.key));
   const applied = [...entries.filter((e) => chosen.has(e.key)), ...drafts];
 
-  const next: Tables = { news: [...baseline.news], apps: [...baseline.apps], features: [...baseline.features], projects: [...baseline.projects] };
+  const next = Object.fromEntries(ORDER.map((key) => [key, [...baseline[key]]])) as Tables;
   for (const change of applied) {
     const list = next[change.entity].filter((r) => r.id !== change.id);
     const row = current[change.entity].find((r) => r.id === change.id);
@@ -280,15 +284,17 @@ export async function discard(entityKey: EntityKey, id: string): Promise<string>
   if (!old && row) {
     check(await db().from(entity.table).delete().eq('id', id));
   } else if (old && !row) {
-    // A deleted feature needs its app; restoring an app also restores its deleted features.
-    if (entityKey === 'features' && !current.apps.some((a) => a.id === old.app_id)) {
+    // A deleted feature or plan needs its app; restoring an app also restores its deleted features and plans.
+    if (isChild(entityKey) && !current.apps.some((a) => a.id === old.app_id)) {
       await discard('apps', String(old.app_id));
       return title;
     }
     check(await db().from(entity.table).insert(old));
     if (entityKey === 'apps') {
-      const missing = baseline.features.filter((f) => f.app_id === id && !current.features.some((c) => c.id === f.id));
-      if (missing.length) check(await db().from(ENTITIES.features.table).insert(missing));
+      for (const child of CHILDREN) {
+        const missing = baseline[child].filter((f) => f.app_id === id && !current[child].some((c) => c.id === f.id));
+        if (missing.length) check(await db().from(ENTITIES[child].table).insert(missing));
+      }
     }
   } else if (old && row) {
     const values = Object.fromEntries(Object.entries(old).filter(([c]) => !IGNORED.has(c)));

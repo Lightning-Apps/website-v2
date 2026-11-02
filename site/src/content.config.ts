@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   APP_STATUSES,
   NEWS_CATEGORIES,
+  PLAN_PERIODS,
   PLATFORM_STATES,
   PROJECT_STATUSES,
 } from '@lightning/shared';
@@ -17,7 +18,7 @@ type Rows = Record<string, unknown>[];
 interface Release {
   id: number | null;
   created_at: string;
-  content: Record<'apps' | 'features' | 'projects' | 'news', Rows>;
+  content: Record<'apps' | 'features' | 'plans' | 'projects' | 'news', Rows>;
 }
 
 let release: Promise<Release> | undefined;
@@ -88,7 +89,29 @@ const apps = defineCollection({
     app_store_url: z.string().nullable(),
     platforms: z.array(z.object({ name: z.string(), state: z.enum(PLATFORM_STATES) })),
     featured: z.boolean(),
+    // Pricing (defaults for releases from before pricing existed)
+    price_eur: z.number().nullable().default(null),
+    has_iap: z.boolean().default(false),
+    trial_days: z.number().nullable().default(null),
+    family_sharing: z.boolean().default(false),
+    pricing_note_de: z.string().default(''),
+    pricing_note_en: z.string().default(''),
     ...archive,
+  }),
+});
+
+const plans = defineCollection({
+  loader: () => rows('plans', 'id'),
+  schema: z.object({
+    ...base,
+    app_id: z.string(),
+    name_de: z.string(),
+    name_en: z.string(),
+    price_eur: z.number(),
+    period: z.enum(PLAN_PERIODS),
+    recommended: z.boolean(),
+    highlights_de: z.string(),
+    highlights_en: z.string(),
   }),
 });
 
@@ -147,4 +170,4 @@ const meta = defineCollection({
   schema: z.object({ id: z.string(), release_id: z.number().nullable(), created_at: z.string() }),
 });
 
-export const collections = { apps, features, projects, news, meta };
+export const collections = { apps, features, plans, projects, news, meta };

@@ -4,7 +4,7 @@ import { ENTITIES, PLATFORM_STATE_LABELS, getEntity } from '../../../lib/entitie
 import { getChangeDetail, type FieldChange } from '../../../lib/publish';
 import { mediaPublicUrl } from '../../../lib/server';
 import { wordDiff } from '../../../lib/textdiff';
-import type { Platform } from '@lightning/shared';
+import { formatPrice, type Platform } from '@lightning/shared';
 
 export const partial = true;
 
@@ -32,6 +32,8 @@ function text(field: FieldChange, value: unknown): string {
   switch (field.type) {
     case 'checkbox':
       return value ? 'Ja' : 'Nein';
+    case 'price':
+      return formatPrice(Number(value), 'de');
     case 'app':
       return apps.get(String(value)) ?? String(value);
     case 'select':

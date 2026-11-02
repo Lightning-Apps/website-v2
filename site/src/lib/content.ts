@@ -4,6 +4,7 @@ import { mediaUrl } from '@lightning/shared';
 
 export type App = CollectionEntry<'apps'>['data'];
 export type Feature = CollectionEntry<'features'>['data'];
+export type Plan = CollectionEntry<'plans'>['data'];
 export type Project = CollectionEntry<'projects'>['data'];
 export type News = CollectionEntry<'news'>['data'];
 
@@ -27,6 +28,13 @@ export async function getFeatures(appUuid: string): Promise<Feature[]> {
   return (await getCollection('features'))
     .map((e) => e.data)
     .filter((f) => f.app_id === appUuid)
+    .sort(bySort);
+}
+
+export async function getPlans(appUuid: string): Promise<Plan[]> {
+  return (await getCollection('plans'))
+    .map((e) => e.data)
+    .filter((p) => p.app_id === appUuid)
     .sort(bySort);
 }
 

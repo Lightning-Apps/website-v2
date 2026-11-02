@@ -1,10 +1,9 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import EntityForm from '../../components/EntityForm.astro';
-import RowActions from '../../components/RowActions.astro';
-import SortHandle from '../../components/SortHandle.astro';
+import ChildList from '../../components/ChildList.astro';
 import Sortable from '../../components/Sortable.astro';
-import { ENTITIES, getEntity } from '../../lib/entities';
+import { APP_CHILDREN, getEntity } from '../../lib/entities';
 import { configError, db, formToRow } from '../../lib/server';
 
 const entity = getEntity(Astro.params.entity);
@@ -16,10 +15,11 @@ const isNew = id === 'new';
 let row: Record<string, any> = {};
 let error: string | null = setupError;
 let saved = Astro.url.searchParams.get('saved') === '1';
-// Features can be opened from their app or from the features list; `back` remembers which (local paths only).
+// Features and plans can be opened from their app or from their own list; `back` remembers which (local paths only).
 const backParam = Astro.url.searchParams.get('back');
 const back = backParam && backParam.startsWith('/') && !backParam.startsWith('//') ? backParam : null;
-const backTo = entity.key === 'features' ? (appId: string) => back ?? `/apps/${appId}` : () => `/${entity.key}/`;
+const isChild = entity.parent === 'apps';
+const backTo = isChild ? (appId: string) => back ?? `/apps/${appId}` : () => `/${entity.key}/`;
 const keepBack = back ? `&back=${encodeURIComponent(back)}` : '';
 
 if (!setupError && Astro.request.method === 'POST') {
@@ -32,7 +32,7 @@ if (!setupError && Astro.request.method === 'POST') {
       const { error: delError } = await db().from(entity.table).delete().eq('id', id);
       if (delError) throw new Error(delError.message);
       const name = existing?.[entity.titleField] ?? entity.singular;
-      const target = entity.key === 'features' && !back ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
+      const target = isChild && !back ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
       return Astro.redirect(target, 303);
     }
     const values = await formToRow(entity, form);
@@ -62,29 +62,35 @@ if (isNew && Object.keys(row).length === 0) {
   // New entries go to the end of the list.
   if (!setupError && entity.key !== 'news') {
     let last = db().from(entity.table).select('sort_order').order('sort_order', { ascending: false }).limit(1);
-    if (entity.key === 'features' && appId) last = last.eq('app_id', appId);
+    if (isChild && appId) last = last.eq('app_id', appId);
     const { data } = await last;
     row.sort_order = (data?.[0]?.sort_order ?? 0) + 1;
   }
 }
 
 const { data: apps } = setupError ? { data: [] } : await db().from('apps').select('id, name').order('sort_order');
-const { data: features } =
+// On an app's page: its features and plans.
+const children =
   entity.key === 'apps' && !isNew && !setupError
-    ? await db().from(ENTITIES.features.table).select('id, title_de, published, sort_order').eq('app_id', id).order('sort_order')
-    : { data: null };
+    ? await Promise.all(
+        APP_CHILDREN.map(async (child) => ({
+          entity: child,
+          rows: (await db().from(child.table).select('*').eq('app_id', id).order('sort_order')).data ?? [],
+        })),
+      )
+    : [];
 
 const title = isNew ? `${entity.singular} anlegen` : String(row[entity.titleField] || entity.singular);
-const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app_id) : undefined;
+const parentApp = isChild ? apps?.find((a) => a.id === row.app_id) : undefined;
 ---
 
 <DashboardLayout title={title}>
   <p class="crumbs">
     {
-      entity.key === 'features' ? (
+      isChild ? (
         <>
-          <a href={back ?? (parentApp ? `/apps/${parentApp.id}` : '/features/')}>← {back || !parentApp ? 'Funktionen' : parentApp.name}</a>
-          {parentApp && (back ? <a class="crumb-alt" href={`/apps/${parentApp.id}`}>App „{parentApp.name}“ öffnen</a> : <a class="crumb-alt" href="/features/">Alle Funktionen</a>)}
+          <a href={back ?? (parentApp ? `/apps/${parentApp.id}` : `/${entity.key}/`)}>← {back || !parentApp ? entity.label : parentApp.name}</a>
+          {parentApp && (back ? <a class="crumb-alt" href={`/apps/${parentApp.id}`}>App „{parentApp.name}“ öffnen</a> : <a class="crumb-alt" href={`/${entity.key}/`}>Alle {entity.label}</a>)}
         </>
       ) : (
         <a href={`/${entity.key}/`}>← {entity.label}</a>
@@ -100,43 +106,24 @@ const parentApp = entity.key === 'features' ? apps?.find((a) => a.id === row.app
 
   {!setupError && <EntityForm entity={entity} row={row} apps={apps ?? []} isNew={isNew} />}
 
+  {children.some((c) => c.rows.length > 1) && <div class="sort-wrap"><Sortable /></div>}
   {
-    features && (
-      <section class="panel features">
+    children.map(({ entity: child, rows }) => (
+      <section class="panel children">
         <div class="page-head">
-          <h2>Funktionen &amp; Screenshots</h2>
-          <a class="btn" href={`/features/new?app_id=${id}`}>+ Funktion hinzufügen</a>
+          <h2>{child.key === 'features' ? 'Funktionen & Screenshots' : child.label}</h2>
+          <a class="btn" href={`/${child.key}/new?app_id=${id}`}>+ {child.singular} hinzufügen</a>
         </div>
-        {features.length === 0 ? (
-          <p class="muted">Noch keine Funktionen.</p>
-        ) : (
-          <>
-          {features.length > 1 && <Sortable />}
-          <table>
-            <tbody data-sortable="features" data-app-id={id}>
-              {features.map((f) => (
-                <tr data-id={f.id}>
-                  <td class="sort-cell"><SortHandle title={f.title_de || 'Funktion'} /></td>
-                  <td class="muted" data-order-num>{f.sort_order}</td>
-                  <td><a href={`/features/${f.id}`}>{f.title_de || '(ohne Titel)'}</a></td>
-                  <td><span class:list={['pill', f.published ? 'pill-published' : 'pill-draft']}>{f.published ? 'Sichtbar' : 'Ausgeblendet'}</span></td>
-                  <td>
-                    <RowActions href={`/features/${f.id}`} title={f.title_de || 'Funktion'} confirm={`Funktion „${f.title_de || 'ohne Titel'}“ endgültig löschen?`} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </>
-        )}
+        <ChildList entity={child} appId={id} rows={rows} />
       </section>
-    )
+    ))
   }
 </DashboardLayout>
 
 <style>
   .crumbs { margin: 0 0 8px; display: flex; gap: 16px; flex-wrap: wrap; }
   .crumb-alt { color: var(--muted); }
-  .features { margin-top: 32px; }
-  .features .page-head { margin-bottom: 8px; }
+  .children { margin-top: 24px; }
+  .sort-wrap { margin-top: 24px; }
+  .children .page-head { margin-bottom: 8px; }
 </style>

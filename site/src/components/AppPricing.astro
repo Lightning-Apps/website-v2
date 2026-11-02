@@ -1,0 +1,129 @@
+---
+// Pricing section of an app page: the download itself plus one card per plan.
+import { formatPrice, pick } from '@lightning/shared';
+import type { App, Plan } from '../lib/content';
+import { highlights, yearlySaving } from '../lib/pricing';
+import { useTranslations, type Locale } from '../i18n/ui';
+
+interface Props {
+  app: App;
+  plans: Plan[];
+  lang: Locale;
+}
+const { app, plans, lang } = Astro.props;
+const t = useTranslations(lang);
+const note = pick(app, 'pricing_note', lang);
+const base = app.price_eur ? formatPrice(app.price_eur, lang) : t('price.free');
+const baseSub = app.price_eur
+  ? app.has_iap || plans.length
+    ? `${t('price.oneTime')} · ${t('price.withIap')}`
+    : t('price.oneTime')
+  : plans.length
+    ? t('price.freeBase')
+    : app.has_iap
+      ? t('price.withIap')
+      : t('price.freeBase');
+const trial = app.trial_days ? `${app.trial_days}${lang === 'de' ? ' ' : ''}${t('price.trial')}` : null;
+---
+
+<section class="section" id="pricing" style={`--accent:${app.accent_color}`}>
+  <div class="container-wide">
+    <h2 class="headline-l center section-head">{t('app.pricing')}</h2>
+    <div class:list={['plans reveal', `plans-${Math.min(plans.length + 1, 4)}`]}>
+      <article class="plan">
+        <p class="plan-name">{t('price.download')}</p>
+        <p class="plan-price">{base}</p>
+        <p class="plan-period">{baseSub}</p>
+      </article>
+      {
+        plans.map((plan) => {
+          const saving = yearlySaving(plan, plans);
+          const items = highlights(plan, lang);
+          return (
+            <article class:list={['plan', { 'plan-recommended': plan.recommended }]}>
+              {plan.recommended && <span class="plan-flag">{t('price.recommended')}</span>}
+              <p class="plan-name">{pick(plan, 'name', lang)}</p>
+              <p class="plan-price">{formatPrice(plan.price_eur, lang)}</p>
+              <p class="plan-period">
+                {t(`price.period.${plan.period}`)}
+                {saving && <span class="plan-saving">{t('price.save')} {saving}{lang === 'de' ? '\u202f' : ''}%</span>}
+              </p>
+              {items.length > 0 && (
+                <ul class="plan-list">
+                  {items.map((item) => <li>{item}</li>)}
+                </ul>
+              )}
+            </article>
+          );
+        })
+      }
+    </div>
+    <div class="pricing-notes">
+      {(trial || app.family_sharing) && <p class="pricing-perks">{[trial, app.family_sharing && t('price.family')].filter(Boolean).join(' · ')}</p>}
+      {note && <p>{note}</p>}
+      <p class="pricing-disclaimer">{t('price.disclaimer')}</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Up to four cards in a row; four become 2 × 2 on medium screens, everything stacks on phones. */
+  .plans { --cols: 1; display: grid; gap: 24px 20px; justify-content: center; grid-template-columns: repeat(var(--cols), minmax(0, 300px)); }
+  .plans-2 { --cols: 2; }
+  .plans-3 { --cols: 3; }
+  .plans-4 { --cols: 4; }
+  @media (max-width: 1068px) { .plans-4 { --cols: 2; } }
+  @media (max-width: 833px) { .plans { --cols: 1; grid-template-columns: minmax(0, 400px); } }
+  .plan {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 32px 28px;
+    border-radius: var(--radius-l);
+    background: var(--bg-alt);
+    border: 2px solid transparent;
+    text-align: center;
+  }
+  .plan-recommended { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--bg-alt)); }
+  .plan-flag {
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 12px;
+    border-radius: 980px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .plan-name { font-size: 17px; font-weight: 600; color: var(--text-secondary); }
+  .plan-price { font-size: clamp(36px, 4vw, 44px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+  .plan-period { font-size: 15px; color: var(--text-secondary); display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .plan-saving {
+    padding: 2px 8px;
+    border-radius: 980px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .plan-list { list-style: none; margin: 16px 0 0; padding: 16px 0 0; border-top: 1px solid var(--border); display: grid; gap: 10px; text-align: left; font-size: 15px; }
+  .plan-list li { position: relative; padding-left: 26px; }
+  .plan-list li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 0.3em;
+    width: 14px;
+    height: 8px;
+    border-left: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    transform: rotate(-45deg);
+  }
+  .pricing-notes { margin: 32px auto 0; max-width: 640px; display: grid; gap: 8px; text-align: center; font-size: 15px; color: var(--text-secondary); }
+  .pricing-perks { color: var(--text); font-weight: 500; }
+  .pricing-disclaimer { font-size: 12px; }
+</style>

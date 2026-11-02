@@ -1,0 +1,71 @@
+---
+// Rows of an app's features or plans: sortable, with edit/delete. Needs <Sortable /> once on the page.
+import RowActions from './RowActions.astro';
+import SortHandle from './SortHandle.astro';
+import { PLAN_PERIOD_LABELS, type Entity } from '../lib/entities';
+import { formatDateTime, mediaPublicUrl } from '../lib/server';
+import { formatPrice, type PlanPeriod } from '@lightning/shared';
+
+interface Props {
+  entity: Entity;
+  appId: string;
+  rows: Record<string, any>[];
+  /** Appended to edit links so the edit page returns here (e.g. "/features/"). */
+  back?: string;
+  /** Show the "last changed" column. */
+  showUpdated?: boolean;
+}
+const { entity, appId, rows, back, showUpdated = false } = Astro.props;
+const isPlan = entity.key === 'plans';
+const backQuery = back ? `?back=${encodeURIComponent(back)}` : '';
+---
+
+{
+  rows.length === 0 ? (
+    <p class="muted empty">Noch keine {entity.label}.</p>
+  ) : (
+    <table>
+      <tbody data-sortable={entity.key} data-app-id={appId}>
+        {rows.map((row) => {
+          const title = row[entity.titleField] || '(ohne Titel)';
+          const href = `/${entity.key}/${row.id}${backQuery}`;
+          const image = isPlan ? null : mediaPublicUrl(row.image_path);
+          const english = isPlan ? row.name_en : row.title_en;
+          return (
+            <tr data-id={row.id}>
+              <td class="sort-cell"><SortHandle title={title} /></td>
+              <td class="muted num" data-order-num>{row.sort_order}</td>
+              {!isPlan && <td class="img-cell">{image ? <img class="thumb" src={image} alt="" /> : <span class="thumb" />}</td>}
+              <td>
+                <a href={href}><strong>{title}</strong></a>
+                {row.recommended && <span class="pill pill-published">Empfohlen</span>}
+                {english && english !== title && <div class="muted">{english}</div>}
+                {!english && <div class="missing">Englischer Name fehlt</div>}
+              </td>
+              {isPlan && (
+                <td class="price">
+                  {formatPrice(Number(row.price_eur), 'de')} <span class="muted">{PLAN_PERIOD_LABELS[row.period as PlanPeriod]}</span>
+                </td>
+              )}
+              <td><span class:list={['pill', row.published ? 'pill-published' : 'pill-draft']}>{row.published ? 'Sichtbar' : 'Ausgeblendet'}</span></td>
+              {showUpdated && <td class="muted updated">{formatDateTime(row.updated_at)}</td>}
+              <td>
+                <RowActions href={href} title={title} confirm={`${entity.singular} „${title}“ endgültig löschen?`} />
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  )
+}
+
+<style>
+  .empty { margin: 4px 0 12px; }
+  .num, .img-cell { width: 1%; }
+  .price { font-weight: 600; }
+  .price .muted { font-weight: 400; }
+  @media (max-width: 1100px) { .updated { display: none; } }
+  .missing { color: var(--warn); font-size: 12px; }
+  .pill { margin-left: 6px; }
+</style>

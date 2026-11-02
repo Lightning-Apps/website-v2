@@ -4,7 +4,8 @@ import AppIcon from '../../components/AppIcon.astro';
 import AppTile from '../../components/AppTile.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
 import NewsCard from '../../components/NewsCard.astro';
-import { getApps, getNews, getProjects, media } from '../../lib/content';
+import { getApps, getNews, getPlans, getProjects, media } from '../../lib/content';
+import { hasPricing, priceLabel } from '../../lib/pricing';
 import { localeStaticPaths, localizePath, useTranslations, type Locale } from '../../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -16,6 +17,8 @@ const [apps, projects, news] = await Promise.all([getApps(), getProjects(), getN
 const featured = apps.find((a) => a.featured) ?? apps[0];
 const latestNews = news.slice(0, 3);
 const heroImage = featured ? media(featured.hero_path) : null;
+const featuredPlans = featured ? await getPlans(featured.uuid) : [];
+const featuredPrice = featured && hasPricing(featured, featuredPlans) ? priceLabel(featured, featuredPlans, lang) : null;
 ---
 
 <BaseLayout lang={lang} title={t('home.title')}>
@@ -30,6 +33,7 @@ const heroImage = featured ? media(featured.hero_path) : null;
             <a class="chevron-link" href={localizePath(lang, `apps/${featured.slug}`)}>{t('cta.learnMore')}</a>
             {featured.app_store_url && <a class="chevron-link" href={featured.app_store_url} rel="noopener">{t('cta.download')}</a>}
           </div>
+          {featuredPrice && <p class="hero-price">{featuredPrice}</p>}
         </div>
         <div class="hero-visual container-wide" aria-hidden="true">
           {heroImage ? <img src={heroImage} alt="" /> : <div class="hero-glow" />}
@@ -98,6 +102,7 @@ const heroImage = featured ? media(featured.hero_path) : null;
   .hero-text { display: grid; justify-items: center; gap: 14px; }
   .hero-text h1 { margin-top: 10px; }
   .hero-tagline { font-size: clamp(24px, 3.4vw, 32px); font-weight: 500; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .hero-price { font-size: 14px; color: var(--text-secondary); }
   .hero-visual { display: flex; justify-content: center; margin-top: 48px; }
   .hero-visual img { max-height: 560px; width: auto; }
   .hero-glow {

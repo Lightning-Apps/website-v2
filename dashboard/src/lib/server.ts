@@ -59,6 +59,18 @@ export async function formToRow(entity: Entity, form: FormData): Promise<Record<
         case 'number':
           row[column] = Number.parseInt(text, 10) || 0;
           break;
+        case 'price': {
+          // Accepts "4,99", "4.99" and "4,99 €".
+          const value = Number.parseFloat(text.replace(/[^\d,.-]/g, '').replace(',', '.'));
+          if (text && !(Number.isFinite(value) && value >= 0)) throw new Error(`„${text}“ ist kein gültiger Preis.`);
+          row[column] = text ? Math.round(value * 100) / 100 : null;
+          break;
+        }
+        case 'count': {
+          const value = Number.parseInt(text, 10);
+          row[column] = Number.isFinite(value) && value > 0 ? value : null;
+          break;
+        }
         case 'url':
         case 'app':
           row[column] = text || null;

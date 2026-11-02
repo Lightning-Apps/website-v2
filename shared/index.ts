@@ -16,6 +16,9 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export const NEWS_CATEGORIES = ['release', 'update', 'studio'] as const;
 export type NewsCategory = (typeof NEWS_CATEGORIES)[number];
 
+export const PLAN_PERIODS = ['week', 'month', 'year', 'once'] as const;
+export type PlanPeriod = (typeof PLAN_PERIODS)[number];
+
 export const MEDIA_BUCKET = 'media';
 
 interface Row {
@@ -58,6 +61,26 @@ export interface AppRow extends Row, Archivable {
   app_store_url: string | null;
   platforms: Platform[];
   featured: boolean;
+  /** Purchase price in euros; null = free download. */
+  price_eur: number | null;
+  has_iap: boolean;
+  trial_days: number | null;
+  family_sharing: boolean;
+  pricing_note_de: string;
+  pricing_note_en: string;
+}
+
+/** A subscription or in-app purchase of an app. */
+export interface AppPlanRow extends Row {
+  app_id: string;
+  name_de: string;
+  name_en: string;
+  price_eur: number;
+  period: PlanPeriod;
+  recommended: boolean;
+  /** One benefit per line. */
+  highlights_de: string;
+  highlights_en: string;
 }
 
 export interface AppFeatureRow extends Row {
@@ -115,4 +138,9 @@ export function pick<T extends object>(row: T, field: string, lang: Locale): str
   if (typeof value === 'string' && value.trim()) return value;
   const fallback = r[`${field}_de`];
   return typeof fallback === 'string' ? fallback : '';
+}
+
+/** "4,99 €" / "€4.99". */
+export function formatPrice(eur: number, lang: Locale): string {
+  return new Intl.NumberFormat(lang === 'de' ? 'de-DE' : 'en-IE', { style: 'currency', currency: 'EUR' }).format(eur);
 }

@@ -2,7 +2,9 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AppIcon from '../../../components/AppIcon.astro';
 import NewsCard from '../../../components/NewsCard.astro';
-import { getAllApps, getFeatures, getNews, media, renderMarkdown, type App } from '../../../lib/content';
+import AppPricing from '../../../components/AppPricing.astro';
+import { getAllApps, getFeatures, getNews, getPlans, media, renderMarkdown, type App } from '../../../lib/content';
+import { hasPricing, priceLabel } from '../../../lib/pricing';
 import { LOCALES, localizePath, useTranslations, type Locale } from '../../../i18n/ui';
 import { activePeriod, pick } from '@lightning/shared';
 
@@ -15,7 +17,9 @@ export async function getStaticPaths() {
 const { app } = Astro.props as { app: App };
 const lang = Astro.params.lang as Locale;
 const t = useTranslations(lang);
-const [features, news] = await Promise.all([getFeatures(app.uuid), getNews()]);
+const [features, plans, news] = await Promise.all([getFeatures(app.uuid), getPlans(app.uuid), getNews()]);
+const showPricing = hasPricing(app, plans);
+const price = showPricing ? priceLabel(app, plans, lang) : null;
 const related = news.filter((n) => n.related_app_id === app.uuid).slice(0, 3);
 const hero = media(app.hero_path);
 const body = pick(app, 'body', lang);
@@ -25,6 +29,22 @@ const archiveNote = pick(app, 'archive_note', lang);
 const statusLabel = app.archived
   ? [t('archive.badge'), period].filter(Boolean).join(' · ')
   : pick(app, 'release_label', lang) || t(`status.${app.status}`);
+
+// Search engines: app with its price and plans (schema.org).
+const structured = showPricing && {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: app.name,
+  description: pick(app, 'description', lang) || pick(app, 'tagline', lang),
+  applicationCategory: 'MobileApplication',
+  operatingSystem: app.platforms.map((p) => p.name).join(', ') || 'iOS',
+  url: new URL(Astro.url.pathname, Astro.site).href,
+  ...(app.app_store_url && { downloadUrl: app.app_store_url }),
+  offers: [
+    { '@type': 'Offer', price: (app.price_eur ?? 0).toFixed(2), priceCurrency: 'EUR' },
+    ...plans.map((p) => ({ '@type': 'Offer', name: pick(p, 'name', lang), price: p.price_eur.toFixed(2), priceCurrency: 'EUR' })),
+  ],
+};
 ---
 
 <BaseLayout lang={lang} title={app.name} description={pick(app, 'description', lang)} image={hero}>
@@ -34,6 +54,8 @@ const statusLabel = app.archived
       <div class="subnav-end">
         <a class="subnav-link" href="#overview">{t('app.overview')}</a>
         {features.length > 0 && <a class="subnav-link" href="#features">{t('app.features')}</a>}
+        {showPricing && <a class="subnav-link" href="#pricing">{t('app.pricing')}</a>}
+        {price && <span class="subnav-price">{price}</span>}
         {
           app.app_store_url ? (
             <a class="button button-small" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>
@@ -71,6 +93,7 @@ const statusLabel = app.archived
           <a class="button" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>
         )
       }
+      {price && <a class="hero-price" href="#pricing">{price}</a>}
     </div>
     <div class="hero-visual container-wide" aria-hidden="true">
       {hero ? <img src={hero} alt="" /> : <div class="hero-glow" />}
@@ -110,6 +133,8 @@ const statusLabel = app.archived
     )
   }
 
+  {showPricing && <AppPricing app={app} plans={plans} lang={lang} />}
+
   {
     app.platforms.length > 0 && (
       <section class="section section-alt" id="platforms">
@@ -140,6 +165,7 @@ const statusLabel = app.archived
       </section>
     )
   }
+  {structured && <script type="application/ld+json" set:html={JSON.stringify(structured)} />}
 </BaseLayout>
 
 <style>
@@ -159,7 +185,8 @@ const statusLabel = app.archived
   .subnav-link { color: var(--text); opacity: 0.8; }
   .subnav .button { background: var(--accent); }
   .is-disabled { background: var(--text-tertiary) !important; cursor: default; }
-  @media (max-width: 600px) { .subnav-link { display: none; } }
+  .subnav-price { color: var(--text-secondary); }
+  @media (max-width: 600px) { .subnav-link, .subnav-price { display: none; } }
 
   .archive-banner { background: var(--bg-alt); border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   .archive-banner-inner {
@@ -180,6 +207,8 @@ const statusLabel = app.archived
   .hero-text h1 { margin-top: 12px; }
   .hero-tagline { font-size: clamp(24px, 3.4vw, 32px); font-weight: 500; }
   .hero-text .button { background: var(--accent); margin-top: 10px; }
+  .hero-price { font-size: 14px; color: var(--text-secondary); }
+  .hero-price:hover { color: var(--text); }
   .hero-visual { display: flex; justify-content: center; margin-top: 48px; }
   .hero-visual img { max-height: 560px; width: auto; }
   .hero-glow {
