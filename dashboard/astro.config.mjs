@@ -36,6 +36,8 @@ export default defineConfig({
       DASHBOARD_ALLOWED_HOSTS: secret(),
       // Directory for local state (site preview)
       DASHBOARD_DATA_DIR: secret(),
+      // "on": publish scheduled releases when they are due (set in the Docker image)
+      DASHBOARD_SCHEDULER: secret(),
     },
     validateSecrets: false,
   },

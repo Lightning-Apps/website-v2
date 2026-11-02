@@ -10,6 +10,7 @@ const path = Astro.url.pathname;
 const entities = Object.values(ENTITIES);
 const nav = [
   { href: '/', label: 'Übersicht', children: [] as { href: string; label: string }[] },
+  { href: '/geplant/', label: 'Geplante Veröffentlichungen', children: [] },
   { href: '/startseite/', label: 'Startseite & Navigation', children: [] },
   ...entities
     .filter((e) => !e.parent)
@@ -53,7 +54,7 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
           })
         }
       </nav>
-      <form method="post" action="/api/deploy" class="deploy-form" data-confirm="Alle offenen Änderungen veröffentlichen und die Website neu bauen?">
+      <form method="post" action="/api/deploy" class="deploy-form" data-confirm="Alle offenen Änderungen veröffentlichen und die Website neu bauen? Geplante Änderungen bleiben für ihren Termin reserviert.">
         <button class="btn btn-primary btn-block" type="submit">Website veröffentlichen</button>
       </form>
       {

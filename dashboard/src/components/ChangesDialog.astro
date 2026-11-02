@@ -2,15 +2,24 @@
 // Overlay listing the changes that are not on the live website yet: details, discard, publish a selection.
 import { ENTITIES, type EntityKey } from '../lib/entities';
 import type { ChangeEntry, Changelog } from '../lib/publish';
+import { toLocalInput, type Schedule } from '../lib/schedule';
 import { formatDateTime } from '../lib/server';
 
 interface Props {
   changelog: Changelog;
+  /** Upcoming scheduled release per change. */
+  scheduled?: Map<string, Schedule>;
   /** Open right away (after discarding from the overlay). */
   open?: boolean;
+  /** Error of the last action, shown inside the overlay. */
+  error?: string | null;
 }
-const { changelog, open = false } = Astro.props;
+const { changelog, scheduled = new Map(), open = false, error = null } = Astro.props;
 const { release } = changelog;
+// Proposed time for a new plan: tomorrow, 9:00.
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+tomorrow.setHours(9, 0, 0, 0);
 
 const KIND: Record<ChangeEntry['kind'], { label: string; cls: string }> = {
   new: { label: 'Neu', cls: 'kind-new' },
@@ -26,7 +35,10 @@ function groups(list: ChangeEntry[]) {
 const live = groups(changelog.entries);
 const titles = new Map(changelog.entries.map((e) => [e.key, `${ENTITIES[e.entity].singular} „${e.title}“`]));
 const drafts = changelog.drafts;
-const total = changelog.entries.length;
+/** Changes that can be published or planned now (not planned, not waiting for a planned one). */
+const blockedBy = (entry: ChangeEntry) => entry.requires.find((k) => scheduled.has(k));
+const total = changelog.entries.filter((e) => !scheduled.has(e.key) && !blockedBy(e)).length;
+const plannedCount = changelog.entries.filter((e) => scheduled.has(e.key)).length;
 ---
 
 <dialog class="changes" id="changes-dialog" aria-labelledby="changes-title" data-open={open ? '' : undefined}>
@@ -41,7 +53,16 @@ const total = changelog.entries.length;
   </header>
 
   <div class="changes-body" data-list-view>
-    {total === 0 && <p class="muted">Keine offenen Änderungen auf der Website.</p>}
+    {error && <p class="notice notice-error">{error}</p>}
+    {changelog.entries.length === 0 && <p class="muted">Keine offenen Änderungen auf der Website.</p>}
+    {
+      plannedCount > 0 && (
+        <p class="muted small-note">
+          {plannedCount === 1 ? '1 Änderung ist' : `${plannedCount} Änderungen sind`} für eine <a href="/geplant/">geplante Veröffentlichung</a> reserviert
+          und {plannedCount === 1 ? 'wird' : 'werden'} beim sofortigen Veröffentlichen nicht mitgenommen.
+        </p>
+      )
+    }
 
     {
       total > 1 && (
@@ -56,17 +77,25 @@ const total = changelog.entries.length;
         <section class="group">
           <h3>{group.label}</h3>
           <ul>
-            {group.items.map((entry) => (
+            {group.items.map((entry) => {
+              const plan = scheduled.get(entry.key);
+              const waitsFor = blockedBy(entry);
+              return (
               <li>
-                <input
-                  type="checkbox"
-                  name="change"
-                  value={entry.key}
-                  form="publish-selection"
-                  checked
-                  aria-label={`${entry.title} veröffentlichen`}
-                  data-requires={entry.requires.join(' ')}
-                />
+                {plan ? (
+                  <span class="check-spacer" aria-hidden="true" />
+                ) : (
+                  <input
+                    type="checkbox"
+                    name="change"
+                    value={entry.key}
+                    form="publish-selection"
+                    checked={!waitsFor}
+                    disabled={Boolean(waitsFor)}
+                    aria-label={`${entry.title} veröffentlichen`}
+                    data-requires={entry.requires.join(' ')}
+                  />
+                )}
                 <span class:list={['kind', KIND[entry.kind].cls]}>{KIND[entry.kind].label}</span>
                 <div class="entry">
                   <button type="button" class="entry-title" data-detail={`/changes/${entry.entity}/${entry.id}`}>
@@ -78,9 +107,18 @@ const total = changelog.entries.length;
                   {entry.requires.length > 0 && (
                     <p class="fields requires">Nur zusammen mit: {entry.requires.map((k) => titles.get(k) ?? k).join(', ')}</p>
                   )}
+                  {plan && (
+                    <a class="planned" href={`/geplant/#s-${plan.id}`}>Geplant für {formatDateTime(plan.run_at)} Uhr</a>
+                  )}
+                  {waitsFor && (
+                    <a class="planned" href={`/geplant/#s-${scheduled.get(waitsFor)!.id}`}>
+                      Wartet auf die geplante Veröffentlichung am {formatDateTime(scheduled.get(waitsFor)!.run_at)} Uhr
+                    </a>
+                  )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       ))
@@ -90,7 +128,7 @@ const total = changelog.entries.length;
       drafts.length > 0 && (
         <details class="drafts">
           <summary>
-            {drafts.length === 1 ? '1 Änderung' : `${drafts.length} Änderungen`} an Entwürfen – ändern die Website nicht, werden aber mit übernommen
+            {drafts.length === 1 ? '1 Änderung' : `${drafts.length} Änderungen`} an Entwürfen – ändern die Website nicht, werden beim sofortigen Veröffentlichen aber mit übernommen
           </summary>
           <ul>
             {drafts.map((entry) => (
@@ -117,10 +155,35 @@ const total = changelog.entries.length;
     <div data-detail-content aria-live="polite"></div>
   </div>
 
+  <div class="schedule-row" data-schedule-row hidden>
+    <label>
+      Auswahl veröffentlichen am
+      <input type="datetime-local" name="run_at" form="publish-selection" value={toLocalInput(tomorrow)} min={toLocalInput(new Date())} data-run-at />
+    </label>
+    <p class="muted">
+      Zu diesem Zeitpunkt gehen genau die ausgewählten Änderungen online, in ihrer dann aktuellen Fassung. Alle anderen bleiben offen. Neue Beiträge
+      bekommen das Datum des Veröffentlichungstags.
+    </p>
+  </div>
+
   <footer class="changes-foot">
     <button type="button" class="btn" data-close-dialog>Schließen</button>
     <form method="post" action="/api/deploy" id="publish-selection" data-confirm-selection>
       <input type="hidden" name="mode" value="selected" />
+      {
+        total > 0 && (
+          <button class="btn" type="button" data-schedule-toggle>
+            Planen …
+          </button>
+        )
+      }
+      {
+        total > 0 && (
+          <button class="btn" type="submit" name="_action" value="create" formaction="/api/schedule" data-schedule-button hidden>
+            Auswahl planen
+          </button>
+        )
+      }
       <button class="btn btn-primary" type="submit" data-publish-button>
         {total > 0 ? `Auswahl veröffentlichen (${total} von ${total})` : 'Website neu bauen'}
       </button>
@@ -133,7 +196,8 @@ const total = changelog.entries.length;
   const listView = dialog.querySelector<HTMLElement>('[data-list-view]')!;
   const detailView = dialog.querySelector<HTMLElement>('[data-detail-view]')!;
   const detailContent = dialog.querySelector<HTMLElement>('[data-detail-content]')!;
-  const boxes = [...dialog.querySelectorAll<HTMLInputElement>('input[name="change"]')];
+  // Changes waiting for a planned release can't be picked.
+  const boxes = [...dialog.querySelectorAll<HTMLInputElement>('input[name="change"]:not(:disabled)')];
   const selectAll = dialog.querySelector<HTMLInputElement>('[data-select-all]');
   const publishButton = dialog.querySelector<HTMLButtonElement>('[data-publish-button]')!;
   const publishForm = dialog.querySelector<HTMLFormElement>('#publish-selection')!;
@@ -191,8 +255,35 @@ const total = changelog.entries.length;
     update();
   });
 
+  // Planning: shows the time field and swaps the main button.
+  const scheduleRow = dialog.querySelector<HTMLElement>('[data-schedule-row]')!;
+  const scheduleToggle = dialog.querySelector<HTMLButtonElement>('[data-schedule-toggle]');
+  const scheduleButton = dialog.querySelector<HTMLButtonElement>('[data-schedule-button]');
+  const runAt = dialog.querySelector<HTMLInputElement>('[data-run-at]')!;
+  scheduleToggle?.addEventListener('click', () => {
+    scheduleRow.hidden = false;
+    scheduleToggle.hidden = true;
+    scheduleButton!.hidden = false;
+    publishButton.classList.remove('btn-primary');
+    scheduleButton!.classList.add('btn-primary');
+    runAt.focus();
+  });
+
   publishForm.addEventListener('submit', (e) => {
     const selected = boxes.filter((b) => b.checked).length;
+    if ((e as SubmitEvent).submitter === scheduleButton) {
+      const when = new Date(runAt.value);
+      const problem =
+        selected === 0 ? 'Bitte mindestens eine Änderung auswählen.' : Number.isNaN(when.getTime()) ? 'Bitte Datum und Uhrzeit angeben.' : when.getTime() <= Date.now() ? 'Der Zeitpunkt muss in der Zukunft liegen.' : null;
+      if (problem) {
+        window.alert(problem);
+        e.preventDefault();
+        return;
+      }
+      const label = new Intl.DateTimeFormat('de-DE', { dateStyle: 'full', timeStyle: 'short' }).format(when);
+      if (!window.confirm(`${selected === 1 ? '1 Änderung' : `${selected} Änderungen`} für ${label} Uhr planen? Nur diese gehen dann online, alle anderen bleiben offen.`)) e.preventDefault();
+      return;
+    }
     const message = !boxes.length
       ? 'Website ohne neue Änderungen neu bauen?'
       : selected === 0
@@ -220,7 +311,8 @@ const total = changelog.entries.length;
   .changes-head h2 { margin: 0 0 4px; font-size: 20px; }
   .changes-head p { margin: 0; font-size: 13px; }
   .changes-foot { border-top: 1px solid var(--border); justify-content: flex-end; align-items: center; flex-wrap: wrap; }
-  .changes-foot form { margin: 0; }
+  .changes-foot form { margin: 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .changes-foot [hidden] { display: none; }
   .close { border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
   .close:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
   .changes-body { overflow-y: auto; padding: 16px 24px 24px; display: grid; gap: 20px; align-content: start; }
@@ -231,6 +323,15 @@ const total = changelog.entries.length;
   li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   li:last-child { border-bottom: 0; }
   li > input { margin-top: 3px; flex-shrink: 0; }
+  .check-spacer { width: 13px; flex-shrink: 0; }
+  .planned { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 980px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .small-note { margin: 0; font-size: 13px; }
+  .schedule-row { padding: 16px 24px 0; border-top: 1px solid var(--border); display: grid; gap: 6px; }
+  .schedule-row[hidden] { display: none; }
+  .schedule-row label { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 500; }
+  .schedule-row input { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .schedule-row p { margin: 0; font-size: 12px; }
+  .schedule-row:not([hidden]) + .changes-foot { border-top: 0; }
   .entry { min-width: 0; flex: 1; }
   .entry-title {
     display: inline;

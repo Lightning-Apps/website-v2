@@ -1,0 +1,217 @@
+---
+// Scheduled releases: what goes live when, plus a log of the past runs.
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { ENTITIES } from '../../lib/entities';
+import { getChangelog, type ChangeEntry } from '../../lib/publish';
+import { listSchedules, schedulerEnabled, toLocalInput, type Schedule } from '../../lib/schedule';
+import { configError, formatDateTime } from '../../lib/server';
+
+const setupError = configError();
+const params = Astro.url.searchParams;
+const notice = {
+  created: 'Geplant.',
+  moved: 'Neuer Zeitpunkt gespeichert.',
+  removed: 'Änderung aus der Planung genommen. Sie bleibt offen.',
+  cancelled: 'Planung aufgehoben. Die Änderungen bleiben offen.',
+  run: 'Veröffentlicht. Cloudflare baut jetzt die Website.',
+}[params.get('done') ?? ''];
+const error = params.get('error');
+
+let upcoming: Schedule[] = [];
+let log: Schedule[] = [];
+let open = new Map<string, ChangeEntry>();
+if (!setupError) {
+  const [lists, changelog] = await Promise.all([listSchedules(), getChangelog()]);
+  ({ upcoming, log } = lists);
+  open = new Map(changelog.entries.map((e) => [e.key, e]));
+}
+
+const KIND = { new: 'Neu', changed: 'Geändert', deleted: 'Gelöscht' } as const;
+const now = Date.now();
+const inOneMinute = toLocalInput(new Date(now + 60_000));
+function relative(iso: string): string {
+  const minutes = Math.round((Date.parse(iso) - now) / 60_000);
+  if (minutes <= 0) return 'fällig';
+  if (minutes < 60) return `in ${minutes} Min.`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `in ${hours} Std.`;
+  return `in ${Math.round(hours / 24)} Tagen`;
+}
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+---
+
+<DashboardLayout title="Geplante Veröffentlichungen">
+  <div class="page-head">
+    <h1>Geplante Veröffentlichungen</h1>
+  </div>
+
+  {setupError && <p class="notice notice-error">{setupError}</p>}
+  {notice && <p class="notice notice-ok">{notice}</p>}
+  {error && <p class="notice notice-error">{error}</p>}
+  {
+    !setupError && !schedulerEnabled() && (
+      <p class="notice notice-warn">
+        Dieses Dashboard veröffentlicht nicht automatisch (lokal). Fällige Termine übernimmt das Dashboard auf dem Heimserver, sobald es läuft.
+      </p>
+    )
+  }
+
+  <p class="muted intro">
+    Plane Änderungen im Fenster „Offene Änderungen“ über „Planen …“. Zum Zeitpunkt gehen genau diese Änderungen online, in ihrer dann aktuellen
+    Fassung. Alle anderen offenen Änderungen bleiben offen. War das Dashboard zum Zeitpunkt nicht erreichbar, wird nachgeholt, sobald es wieder
+    läuft.
+  </p>
+
+  {!setupError && upcoming.length === 0 && <p class="panel muted">Nichts geplant.</p>}
+
+  <div class="stack">
+    {
+      upcoming.map((s) => {
+        const running = s.status === 'running';
+        const missing = s.changes.filter((c) => !open.has(c.key)).length;
+        return (
+          <section class="panel plan" id={`s-${s.id}`}>
+            <div class="plan-head">
+              <div>
+                <h2>{formatDateTime(s.run_at)} Uhr</h2>
+                <p class="muted">
+                  {running ? 'Wird gerade veröffentlicht …' : relative(s.run_at)} · {plural(s.changes.length, 'Änderung', 'Änderungen')}
+                </p>
+              </div>
+              {running ? (
+                <span class="pill pill-draft">Läuft</span>
+              ) : (
+                <div class="plan-actions">
+                  <form method="post" action="/api/schedule" class="inline">
+                    <input type="hidden" name="id" value={s.id} />
+                    <input class="when" type="datetime-local" name="run_at" value={toLocalInput(new Date(s.run_at))} min={inOneMinute} required aria-label="Neuer Zeitpunkt" />
+                    <button class="btn" type="submit" name="_action" value="reschedule">Verschieben</button>
+                  </form>
+                  <form method="post" action="/api/schedule" class="inline">
+                    <input type="hidden" name="id" value={s.id} />
+                    <button class="btn btn-primary" type="submit" name="_action" value="run" data-confirm="Diese Änderungen jetzt sofort veröffentlichen?">
+                      Jetzt veröffentlichen
+                    </button>
+                    <button class="btn" type="submit" name="_action" value="cancel" data-confirm="Planung aufheben? Die Änderungen bleiben offen.">
+                      Aufheben
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+
+            <ul class="changes">
+              {s.changes.map((c) => {
+                const entry = open.get(c.key);
+                return (
+                  <li>
+                    {entry ? (
+                      <span class:list={['kind', `kind-${entry.kind}`]}>{KIND[entry.kind]}</span>
+                    ) : (
+                      <span class="kind kind-gone">Erledigt</span>
+                    )}
+                    <div class="entry">
+                      <span class="muted">{ENTITIES[c.entity].singular}: </span>
+                      {entry?.href ? <a href={entry.href}>{entry.title}</a> : <strong>{entry?.title ?? c.title}</strong>}
+                      {entry?.context && <span class="muted"> · {entry.context}</span>}
+                      {entry && entry.fields.length > 0 && <p class="fields">{entry.fields.join(', ')}</p>}
+                      {!entry && <p class="fields">Nicht mehr offen: schon veröffentlicht oder verworfen. Wird übersprungen.</p>}
+                    </div>
+                    {!running && (
+                      <form method="post" action="/api/schedule" class="inline">
+                        <input type="hidden" name="id" value={s.id} />
+                        <input type="hidden" name="key" value={c.key} />
+                        <button
+                          class="link-button"
+                          type="submit"
+                          name="_action"
+                          value="remove"
+                          data-confirm={`„${entry?.title ?? c.title}“ aus der Planung nehmen? Die Änderung bleibt offen. Änderungen, die nur zusammen damit gehen, werden ebenfalls herausgenommen.`}
+                        >
+                          Herausnehmen
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {missing > 0 && missing === s.changes.length && <p class="muted fields">Zum Zeitpunkt gibt es nichts mehr zu veröffentlichen; es wird nicht gebaut.</p>}
+          </section>
+        );
+      })
+    }
+  </div>
+
+  {
+    log.length > 0 && (
+      <section class="panel log">
+        <h2>Protokoll</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Geplant für</th>
+              <th>Ausgeführt</th>
+              <th>Ergebnis</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {log.map((s) => (
+              <tr id={`s-${s.id}`}>
+                <td>{formatDateTime(s.run_at)}</td>
+                <td class="muted">{s.finished_at ? formatDateTime(s.finished_at) : '–'}</td>
+                <td>
+                  <span class:list={['pill', s.status === 'done' ? 'pill-published' : 'pill-error']}>{s.status === 'done' ? 'Erledigt' : 'Fehlgeschlagen'}</span>
+                  {s.release_id && <span class="muted"> Stand #{s.release_id}</span>}
+                  <p class="fields">{s.changes.map((c) => c.title).join(', ')}</p>
+                  {s.message && <p class:list={['fields', { 'log-error': s.status === 'failed' }]}>{s.message}</p>}
+                </td>
+                <td class="log-actions">
+                  {s.status === 'failed' && (
+                    <form method="post" action="/api/schedule" class="inline">
+                      <input type="hidden" name="id" value={s.id} />
+                      <button class="btn" type="submit" name="_action" value="run" data-confirm="Jetzt erneut versuchen?">
+                        Erneut versuchen
+                      </button>
+                      <button class="btn" type="submit" name="_action" value="cancel" data-confirm="Eintrag entfernen? Die Änderungen bleiben offen.">
+                        Entfernen
+                      </button>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )
+  }
+</DashboardLayout>
+
+<style>
+  .intro { margin: -12px 0 20px; max-width: 72ch; }
+  .plan-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .plan-head h2 { margin: 0 0 2px; }
+  .plan-head p { margin: 0; font-size: 13px; }
+  .plan-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0; }
+  .when { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .changes { list-style: none; margin: 0; padding: 0; }
+  .changes li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  .entry { flex: 1; min-width: 0; }
+  .fields { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .kind { flex-shrink: 0; width: 72px; text-align: center; padding: 2px 0; border-radius: 980px; font-size: 11px; font-weight: 600; margin-top: 1px; }
+  .kind-new { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .kind-changed { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .kind-deleted { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+  .kind-gone { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--muted); }
+  .link-button { border: 0; background: none; padding: 0; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .link-button:hover { color: var(--danger); text-decoration: underline; }
+  .log { margin-top: 24px; }
+  .log h2 { margin-top: 0; }
+  .log td { vertical-align: top; }
+  .log-error { color: var(--danger); }
+  .log-actions { width: 1%; white-space: nowrap; }
+  .pill-error { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+</style>

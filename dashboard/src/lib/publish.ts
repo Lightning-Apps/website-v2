@@ -212,7 +212,7 @@ export async function getChangeDetail(entityKey: EntityKey, id: string) {
 }
 
 /** Selected changes plus everything they depend on. */
-function withDependencies(selected: Set<string>, entries: ChangeEntry[]): Set<string> {
+export function withDependencies(selected: Set<string>, entries: ChangeEntry[]): Set<string> {
   const byKey = new Map(entries.map((e) => [e.key, e]));
   const result = new Set<string>();
   const add = (key: string) => {
@@ -224,19 +224,54 @@ function withDependencies(selected: Set<string>, entries: ChangeEntry[]): Set<st
   return result;
 }
 
+export interface PublishOptions {
+  /** Changes reserved for a scheduled release: never published along. */
+  reserved?: Map<string, string>;
+  /**
+   * Scheduled release: exactly the selection goes live. Fails instead of taking along a change it depends on,
+   * and leaves changes to drafts open.
+   */
+  exact?: boolean;
+  /** Date (YYYY-MM-DD) for posts that appear on the website with this release. */
+  newsDate?: string;
+}
+
 /**
  * Publishes the selected changes (all when `selection` is null) and starts a Cloudflare build.
- * Changes to drafts are always taken along: they do not change the website.
+ * Changes to drafts are taken along unless `exact` is set: they do not change the website.
  */
-export async function publish(selection: string[] | null): Promise<{ published: number; release: number }> {
+export async function publish(selection: string[] | null, options: PublishOptions = {}): Promise<{ published: number; release: number }> {
   const hook = CF_DEPLOY_HOOK_URL;
   if (!hook) throw new Error('CF_DEPLOY_HOOK_URL fehlt in der .env.');
+  const reserved = options.reserved ?? new Map<string, string>();
 
   const [release, current] = await Promise.all([latestRelease(), loadAll()]);
   const baseline = baselineOf(release);
   const { entries, drafts } = diff(baseline, current);
-  const chosen = selection ? withDependencies(new Set(selection), entries) : new Set(entries.map((e) => e.key));
-  const applied = [...entries.filter((e) => chosen.has(e.key)), ...drafts];
+  const titles = new Map(entries.map((e) => [e.key, `„${e.title}“`]));
+  let chosen: Set<string>;
+  if (selection) {
+    chosen = withDependencies(new Set(selection), entries);
+    const extra = options.exact ? [...chosen].filter((k) => !selection.includes(k)) : [];
+    if (extra.length) throw new Error(`Geht nur zusammen mit ${extra.map((k) => titles.get(k)).join(', ')}, das nicht eingeplant ist.`);
+    const blocked = [...chosen].filter((k) => reserved.has(k));
+    if (blocked.length) throw new Error(blocked.map((k) => `${titles.get(k)} ist für ${reserved.get(k)} geplant`).join(', ') + '. Veröffentliche es dort vorzeitig oder nimm es aus der Planung.');
+  } else {
+    // Everything except reserved changes and what can only go live together with them.
+    chosen = new Set(entries.filter((e) => ![...withDependencies(new Set([e.key]), entries)].some((k) => reserved.has(k))).map((e) => e.key));
+  }
+  const applied = [...entries.filter((e) => chosen.has(e.key)), ...(options.exact ? [] : drafts)];
+
+  // Posts that appear now get the release date.
+  if (options.newsDate) {
+    for (const change of applied) {
+      const row = change.entity === 'news' ? current.news.find((r) => r.id === change.id) : undefined;
+      if (!row || row.published_at === options.newsDate || visible('news', baseline.news.find((r) => r.id === change.id), baseline)) continue;
+      const { error } = await db().from('news').update({ published_at: options.newsDate }).eq('id', row.id);
+      if (error) throw new Error(`Datum von „${row.title_de}“ konnte nicht gesetzt werden: ${error.message}`);
+      row.published_at = options.newsDate;
+    }
+  }
 
   const next = Object.fromEntries(ORDER.map((key) => [key, [...baseline[key]]])) as Tables;
   for (const change of applied) {

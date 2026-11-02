@@ -20,7 +20,8 @@ FROM node:26-alpine
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=4322 \
-    DASHBOARD_DATA_DIR=/data
+    DASHBOARD_DATA_DIR=/data \
+    DASHBOARD_SCHEDULER=on
 WORKDIR /app
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/shared shared

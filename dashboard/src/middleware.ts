@@ -1,6 +1,10 @@
 import { defineMiddleware } from 'astro:middleware';
 import { DASHBOARD_ALLOWED_HOSTS } from 'astro:env/server';
 import { SESSION_COOKIE, authRequired, isValidSession } from './lib/auth';
+import { startScheduler } from './lib/schedule';
+
+// Scheduled releases go live from here (the first request, at the latest the health check, loads this module).
+startScheduler();
 
 // Only answer requests addressed to a known host name (blocks DNS-rebinding tricks).
 // On the server, set DASHBOARD_ALLOWED_HOSTS, e.g. "192.168.1.20:4322,dashboard.home.lan".

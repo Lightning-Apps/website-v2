@@ -5,6 +5,7 @@ import { CF_DEPLOY_HOOK_URL, SITE_URL } from 'astro:env/server';
 import ChangesDialog from '../components/ChangesDialog.astro';
 import { configError, db, formatDateTime } from '../lib/server';
 import { getChangelog, type Changelog } from '../lib/publish';
+import { scheduleByKey, type Schedule } from '../lib/schedule';
 
 const setupError = configError();
 const params = Astro.url.searchParams;
@@ -16,11 +17,12 @@ const hookMissing = !CF_DEPLOY_HOOK_URL;
 const siteUrl = SITE_URL || 'http://localhost:4321';
 
 let changelog: Changelog = { entries: [], drafts: [], release: null };
+let scheduled = new Map<string, Schedule>();
 let counts: { label: string; href: string; total: number; drafts: number }[] = [];
 let latestNews: { id: string; title_de: string; published: boolean; published_at: string }[] = [];
 
 if (!setupError) {
-  changelog = await getChangelog();
+  [changelog, scheduled] = await Promise.all([getChangelog(), scheduleByKey()]);
   counts = await Promise.all(
     Object.values(ENTITIES)
       .filter((e) => !e.parent)
@@ -41,6 +43,8 @@ const pending = {
   deleted: changelog.entries.filter((e) => e.kind === 'deleted').length,
 };
 const pendingTotal = pending.changed + pending.deleted;
+const nextPlan = [...scheduled.values()].sort((a, b) => a.run_at.localeCompare(b.run_at))[0];
+const plannedCount = changelog.entries.filter((e) => scheduled.has(e.key)).length;
 const hasDetails = pendingTotal > 0 || changelog.drafts.length > 0;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const breakdown = [
@@ -83,9 +87,17 @@ const breakdown = [
       <p class="muted small">
         {changelog.release ? `Zuletzt veröffentlicht: Stand #${changelog.release.id} am ${formatDateTime(changelog.release.created_at)} Uhr` : 'Noch nie veröffentlicht.'}
       </p>
+      {
+        nextPlan && (
+          <p class="muted small">
+            Nächste geplante Veröffentlichung: <a href={`/geplant/#s-${nextPlan.id}`}>{formatDateTime(nextPlan.run_at)} Uhr</a>
+            {plannedCount > 0 && ` · ${plural(plannedCount, 'Änderung', 'Änderungen')} insgesamt geplant`}
+          </p>
+        )
+      }
       <div class="publish-actions">
         {hasDetails && <button class="btn btn-primary" type="button" data-open-changes>Änderungen ansehen</button>}
-        <form method="post" action="/api/deploy" data-confirm={pendingTotal > 0 ? 'Alle offenen Änderungen veröffentlichen?' : 'Website ohne neue Änderungen neu bauen?'}>
+        <form method="post" action="/api/deploy" data-confirm={pendingTotal > 0 ? (plannedCount > 0 ? 'Alle offenen Änderungen außer den geplanten veröffentlichen?' : 'Alle offenen Änderungen veröffentlichen?') : 'Website ohne neue Änderungen neu bauen?'}>
           <button class:list={['btn', { 'btn-primary': !hasDetails }]} type="submit">{pendingTotal > 0 ? 'Alles veröffentlichen' : 'Neu bauen'}</button>
         </form>
       </div>
@@ -145,7 +157,7 @@ const breakdown = [
       </section>
     )
   }
-  {!setupError && <ChangesDialog changelog={changelog} open={params.get('changes') === 'open'} />}
+  {!setupError && <ChangesDialog changelog={changelog} scheduled={scheduled} open={params.get('changes') === 'open'} error={params.get('changes') === 'open' ? actionError : null} />}
 </DashboardLayout>
 
 <script>

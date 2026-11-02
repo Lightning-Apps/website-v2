@@ -128,6 +128,12 @@ Die Vorschau wird im Container gebaut (braucht kurz etwa 300–500 MB RAM) und i
 
 Nicht angehakte Einträge bleiben Entwürfe und sind öffentlich unsichtbar.
 
+## Veröffentlichung planen
+
+Im Fenster **Offene Änderungen** die gewünschten Änderungen auswählen → **Planen …** → Datum und Uhrzeit → **Auswahl planen**. Zum Zeitpunkt veröffentlicht das Dashboard auf dem Heimserver genau diese Änderungen, in ihrer dann aktuellen Fassung (spätere Korrekturen gehen also mit), und startet einmal den Build. Alle anderen offenen Änderungen bleiben offen; geplante Änderungen werden beim sofortigen Veröffentlichen nicht mitgenommen. Neue Beiträge bekommen das Datum des Veröffentlichungstags.
+
+Unter **Geplante Veröffentlichungen** lassen sich Termine verschieben, Änderungen herausnehmen, die Planung aufheben oder alles vorzeitig veröffentlichen; darunter steht ein Protokoll. Das Dashboard prüft jede Minute, ob etwas fällig ist. War der Server zum Zeitpunkt aus, wird nachgeholt, sobald er wieder läuft. Lokal (`npm run dashboard`) wird nicht automatisch veröffentlicht, außer mit `DASHBOARD_SCHEDULER=on` in `dashboard/.env`.
+
 ## Texte, die im Code stehen
 
 About-Us-Inhalte und alle UI-Texte stehen in `site/src/i18n/ui.ts` bzw. den Seiten unter `site/src/pages/[lang]/`. Impressum und Datenschutz: `site/src/pages/[lang]/imprint.astro` und `privacy.astro`; Anbieterangaben und Kontaktadresse zentral in `site/src/lib/legal.ts`.
