@@ -50,6 +50,9 @@ const heroImage = featured ? media(featured.hero_path) : null;
           <div class="grid grid-2">
             {homeApps.map((app) => <AppTile app={app} lang={lang} />)}
           </div>
+          <p class="center more-link">
+            <a class="chevron-link" href={localizePath(lang, 'apps')}>{t('nav.allApps')}</a>
+          </p>
         </div>
       </section>
     )
