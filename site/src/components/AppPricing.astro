@@ -22,7 +22,7 @@ const baseSub = app.price_eur
     ? t('price.freeBase')
     : app.has_iap
       ? t('price.withIap')
-      : t('price.freeBase');
+      : t('price.freeAll');
 const trial = app.trial_days ? `${app.trial_days}${lang === 'de' ? ' ' : ''}${t('price.trial')}` : null;
 ---
 

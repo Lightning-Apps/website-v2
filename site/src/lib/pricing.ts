@@ -3,10 +3,9 @@ import { formatPrice, type Locale } from '@lightning/shared';
 import type { App, Plan } from './content';
 import { useTranslations } from '../i18n/ui';
 
-/** Whether the app has anything to say about its price (otherwise nothing is shown, e.g. before release). */
-export function hasPricing(app: App, plans: Plan[]): boolean {
-  if (app.archived) return false;
-  return app.price_eur !== null || app.has_iap || plans.length > 0 || Boolean(app.app_store_url);
+/** Every app shows its price (no price means free); archived apps can't be downloaded anymore, so they show none. */
+export function hasPricing(app: App): boolean {
+  return !app.archived;
 }
 
 /** Short label like the App Store: "Kostenlos · In-App-Käufe", "4,99 €", "Kostenlos · Abo verfügbar". */

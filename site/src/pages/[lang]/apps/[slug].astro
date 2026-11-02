@@ -18,7 +18,7 @@ const { app } = Astro.props as { app: App };
 const lang = Astro.params.lang as Locale;
 const t = useTranslations(lang);
 const [features, plans, news] = await Promise.all([getFeatures(app.uuid), getPlans(app.uuid), getNews()]);
-const showPricing = hasPricing(app, plans);
+const showPricing = hasPricing(app);
 const price = showPricing ? priceLabel(app, plans, lang) : null;
 const related = news.filter((n) => n.related_app_id === app.uuid).slice(0, 3);
 const hero = media(app.hero_path);

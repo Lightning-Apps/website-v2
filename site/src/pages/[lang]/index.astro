@@ -18,7 +18,7 @@ const featured = apps.find((a) => a.featured) ?? apps[0];
 const latestNews = news.slice(0, 3);
 const heroImage = featured ? media(featured.hero_path) : null;
 const featuredPlans = featured ? await getPlans(featured.uuid) : [];
-const featuredPrice = featured && hasPricing(featured, featuredPlans) ? priceLabel(featured, featuredPlans, lang) : null;
+const featuredPrice = featured && hasPricing(featured) ? priceLabel(featured, featuredPlans, lang) : null;
 ---
 
 <BaseLayout lang={lang} title={t('home.title')}>

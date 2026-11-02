@@ -14,7 +14,7 @@ const t = useTranslations(lang);
 const hero = media(app.hero_path);
 const detail = localizePath(lang, `apps/${app.slug}`);
 const plans = await getPlans(app.uuid);
-const price = hasPricing(app, plans) ? priceLabel(app, plans, lang) : null;
+const price = hasPricing(app) ? priceLabel(app, plans, lang) : null;
 ---
 
 <article class="tile reveal" style={`--accent:${app.accent_color}`}>
