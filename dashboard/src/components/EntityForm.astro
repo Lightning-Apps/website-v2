@@ -37,7 +37,7 @@ const platforms = (row.platforms ?? []) as Platform[];
 
   <div class="panel fields">
     {
-      entity.fields.map((field) =>
+      entity.fields.filter((field) => !field.formHidden).map((field) =>
         columns(field).map(({ column, lang }) => {
           const value = row[column];
           const id = `f-${column}`;

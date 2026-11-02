@@ -60,7 +60,10 @@ export interface AppRow extends Row, Archivable {
   release_label_en: string;
   app_store_url: string | null;
   platforms: Platform[];
+  /** Presented in the homepage hero (at most one app). */
   featured: boolean;
+  /** Shown as a tile on the homepage; always listed in the navigation and on the apps page. */
+  show_on_home: boolean;
   /** Purchase price in euros; null = free download. */
   price_eur: number | null;
   has_iap: boolean;

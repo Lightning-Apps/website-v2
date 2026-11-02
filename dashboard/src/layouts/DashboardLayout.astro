@@ -10,6 +10,7 @@ const path = Astro.url.pathname;
 const entities = Object.values(ENTITIES);
 const nav = [
   { href: '/', label: 'Übersicht', children: [] as { href: string; label: string }[] },
+  { href: '/startseite/', label: 'Startseite', children: [] },
   ...entities
     .filter((e) => !e.parent)
     .map((e) => ({

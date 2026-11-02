@@ -37,6 +37,8 @@ export interface Field {
   required?: boolean;
   options?: readonly { value: string; label: string }[];
   help?: string;
+  /** Edited elsewhere (e.g. on the Startseite page): not in the form, but labelled in the change list. */
+  formHidden?: boolean;
 }
 
 export interface Entity {
@@ -143,7 +145,8 @@ export const ENTITIES: Record<EntityKey, Entity> = {
       { name: 'icon_path', label: 'App-Icon', type: 'image', help: 'Quadratisch, mind. 512 × 512 px.' },
       { name: 'hero_path', label: 'Hero-Bild', type: 'image', help: 'Großes Bild für Startseite und App-Seite (PNG mit transparentem Hintergrund wirkt am besten).' },
       { name: 'accent_color', label: 'Akzentfarbe', type: 'color' },
-      { name: 'featured', label: 'Auf der Startseite hervorheben', type: 'checkbox' },
+      { name: 'featured', label: 'Auf der Startseite präsentiert', type: 'checkbox', formHidden: true },
+      { name: 'show_on_home', label: 'Auf der Startseite gezeigt', type: 'checkbox', formHidden: true },
       sortOrder,
       published,
       ...pricingFields,

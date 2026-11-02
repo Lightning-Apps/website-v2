@@ -89,6 +89,7 @@ const apps = defineCollection({
     app_store_url: z.string().nullable(),
     platforms: z.array(z.object({ name: z.string(), state: z.enum(PLATFORM_STATES) })),
     featured: z.boolean(),
+    show_on_home: z.boolean().default(true),
     // Pricing (defaults for releases from before pricing existed)
     price_eur: z.number().nullable().default(null),
     has_iap: z.boolean().default(false),

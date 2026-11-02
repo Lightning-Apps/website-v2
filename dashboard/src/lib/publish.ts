@@ -165,14 +165,19 @@ function diff(baseline: Tables, current: Tables): Omit<Changelog, 'release'> {
   }
 
   // Dependencies: a feature or plan of an app that is not on the website yet needs that app;
-  // deleting an app also deletes its features and plans.
+  // deleting an app also deletes its features and plans; switching the presented app changes two apps at once.
   const byKey = new Map(entries.map((e) => [e.key, e]));
+  const featuredChanges = entries
+    .filter((e) => e.entity === 'apps' && e.kind === 'changed')
+    .filter((e) => !same(baseline.apps.find((a) => a.id === e.id)?.featured, current.apps.find((a) => a.id === e.id)?.featured))
+    .map((e) => e.key);
   for (const entry of entries) {
     if (isChild(entry.entity) && entry.kind !== 'deleted') {
       const appId = String(current[entry.entity].find((f) => f.id === entry.id)?.app_id);
       const appEntry = byKey.get(keyOf('apps', appId));
       if (appEntry && !visible('apps', baseline.apps.find((a) => a.id === appId), baseline)) entry.requires.push(appEntry.key);
     }
+    if (featuredChanges.includes(entry.key)) entry.requires.push(...featuredChanges.filter((k) => k !== entry.key));
     if (entry.entity === 'apps' && entry.kind === 'deleted') {
       entry.requires.push(
         ...entries
@@ -297,6 +302,8 @@ export async function discard(entityKey: EntityKey, id: string): Promise<string>
       }
     }
   } else if (old && row) {
+    // Only one app can be presented: restoring this one takes it away from the current one.
+    if (entityKey === 'apps' && old.featured && !row.featured) check(await db().from('apps').update({ featured: false }).eq('featured', true));
     const values = Object.fromEntries(Object.entries(old).filter(([c]) => !IGNORED.has(c)));
     check(await db().from(entity.table).update(values).eq('id', id));
   }

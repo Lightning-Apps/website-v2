@@ -1,0 +1,114 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { configError, db, mediaPublicUrl } from '../../lib/server';
+
+const setupError = configError();
+let error: string | null = setupError;
+const saved = Astro.url.searchParams.get('saved') === '1';
+
+type HomeApp = { id: string; name: string; icon_path: string | null; published: boolean; featured: boolean; show_on_home: boolean };
+const load = async () =>
+  ((await db().from('apps').select('id, name, icon_path, published, featured, show_on_home').eq('archived', false).order('sort_order')).data ?? []) as HomeApp[];
+
+if (!setupError && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const featuredId = String(form.get('featured') ?? '');
+  const shown = new Set(form.getAll('show').map(String));
+  try {
+    const apps = await load();
+    // Only touch rows that actually change, so untouched apps don't show up as changes.
+    const updates = apps
+      .map((app) => ({ app, values: { featured: app.id === featuredId, show_on_home: shown.has(app.id) } }))
+      .filter(({ app, values }) => app.featured !== values.featured || app.show_on_home !== values.show_on_home);
+    // Unfeature first: at most one app may be featured at any time.
+    updates.sort((a, b) => Number(a.values.featured) - Number(b.values.featured));
+    for (const { app, values } of updates) {
+      const { error: saveError } = await db().from('apps').update(values).eq('id', app.id);
+      if (saveError) throw new Error(saveError.message);
+    }
+    return Astro.redirect('/startseite/?saved=1', 303);
+  } catch (e) {
+    error = (e as Error).message;
+  }
+}
+
+const apps = setupError ? [] : await load();
+const featured = apps.find((a) => a.featured);
+---
+
+<DashboardLayout title="Startseite">
+  <div class="page-head">
+    <h1>Startseite</h1>
+  </div>
+
+  {saved && <p class="notice notice-ok">Gespeichert. Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
+  {error && <p class="notice notice-error">{error}</p>}
+
+  {
+    !setupError && (
+      <form method="post" class="stack">
+        <section class="panel">
+          <h2>Präsentierte App</h2>
+          <p class="muted hint">Erscheint groß ganz oben auf der Startseite.</p>
+          <select name="featured" class="select">
+            <option value="" selected={!featured}>Automatisch (erste App in der Liste unten)</option>
+            {apps.map((app) => (
+              <option value={app.id} selected={app.id === featured?.id}>
+                {app.name}
+                {app.published ? '' : ' (Entwurf)'}
+              </option>
+            ))}
+          </select>
+        </section>
+
+        <section class="panel">
+          <h2>Apps auf der Startseite</h2>
+          <p class="muted hint">
+            Ausgeschaltete Apps bleiben in der Navigation und unter „Alle Apps“ erreichbar. Die Reihenfolge stellst du unter <a href="/apps/">Apps</a> ein, archivierte
+            Apps stehen nie auf der Startseite.
+          </p>
+          {apps.length === 0 ? (
+            <p class="muted">Noch keine Apps.</p>
+          ) : (
+            <ul class="home-list">
+              {apps.map((app) => {
+                const icon = mediaPublicUrl(app.icon_path);
+                return (
+                  <li>
+                    <label class="home-row">
+                      {icon ? <img class="thumb" src={icon} alt="" /> : <span class="thumb" />}
+                      <span class="home-name">
+                        <strong>{app.name}</strong>
+                        {!app.published && <span class="pill pill-draft">Entwurf</span>}
+                      </span>
+                      <input class="switch" type="checkbox" name="show" value={app.id} checked={app.show_on_home} aria-label={`${app.name} auf der Startseite zeigen`} />
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <div>
+          <button class="btn btn-primary" type="submit">Speichern</button>
+        </div>
+      </form>
+    )
+  }
+</DashboardLayout>
+
+<style>
+  .hint { margin: -6px 0 14px; }
+  .select { font: inherit; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-width: min(100%, 360px); }
+  .home-list { list-style: none; margin: 0; padding: 0; }
+  .home-list li + li { border-top: 1px solid var(--border); }
+  .home-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+  .home-row .thumb { display: inline-block; flex: none; }
+  .home-name { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .switch { appearance: none; flex: none; width: 42px; height: 26px; margin: 0; border-radius: 13px; background: var(--border); position: relative; cursor: pointer; transition: background 0.2s; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); transition: transform 0.2s; }
+  .switch:checked { background: var(--ok); }
+  .switch:checked::after { transform: translateX(16px); }
+  .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>

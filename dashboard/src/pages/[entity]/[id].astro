@@ -46,7 +46,7 @@ if (!setupError && Astro.request.method === 'POST') {
     error = (e as Error).message;
     // Re-show what was typed (images and platforms are re-read from the database below).
     row = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string'));
-    for (const f of entity.fields) if (f.type === 'checkbox') row[f.name] = form.get(f.name) === 'on';
+    for (const f of entity.fields) if (f.type === 'checkbox' && !f.formHidden) row[f.name] = form.get(f.name) === 'on';
     saved = false;
   }
 }

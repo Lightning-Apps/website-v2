@@ -42,6 +42,7 @@ export async function formToRow(entity: Entity, form: FormData): Promise<Record<
   const columns = (f: Field) => (f.i18n ? LOCALES.map((l) => `${f.name}_${l}`) : [f.name]);
 
   for (const field of entity.fields) {
+    if (field.formHidden) continue;
     for (const column of columns(field)) {
       const raw = form.get(column);
       const text = typeof raw === 'string' ? raw.trim() : '';
