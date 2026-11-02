@@ -1,7 +1,6 @@
 ---
 import AppIcon from './AppIcon.astro';
-import { getPlans, media, type App } from '../lib/content';
-import { hasPricing, priceLabel } from '../lib/pricing';
+import { media, type App } from '../lib/content';
 import { localizePath, useTranslations, type Locale } from '../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -13,8 +12,6 @@ const { app, lang } = Astro.props;
 const t = useTranslations(lang);
 const hero = media(app.hero_path);
 const detail = localizePath(lang, `apps/${app.slug}`);
-const plans = await getPlans(app.uuid);
-const price = hasPricing(app) ? priceLabel(app, plans, lang) : null;
 ---
 
 <article class="tile reveal" style={`--accent:${app.accent_color}`}>
@@ -23,7 +20,6 @@ const price = hasPricing(app) ? priceLabel(app, plans, lang) : null;
     <h3 class="headline-m">{app.name}</h3>
     <p class="tile-tagline">{pick(app, 'tagline', lang)}</p>
     <span class:list={['badge', `badge-${app.status}`]}>{pick(app, 'release_label', lang) || t(`status.${app.status}`)}</span>
-    {price && <p class="tile-price">{price}</p>}
     <div class="links tile-links">
       <a class="chevron-link" href={detail}>{t('cta.learnMore')}<span class="visually-hidden"> – {app.name}</span></a>
       {app.app_store_url && <a class="chevron-link" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>}
@@ -51,7 +47,6 @@ const price = hasPricing(app) ? priceLabel(app, plans, lang) : null;
   .tile-text h3 { margin-top: 8px; }
   .tile-tagline { font-size: 21px; line-height: 1.24; }
   .tile-links { margin-top: 8px; font-size: 17px; }
-  .tile-price { font-size: 14px; color: var(--text-secondary); }
   .tile-visual { flex: 1; display: flex; align-items: flex-end; justify-content: center; margin-top: 28px; }
   .tile-visual img { max-height: 280px; width: auto; object-fit: contain; }
   .tile-glow {
