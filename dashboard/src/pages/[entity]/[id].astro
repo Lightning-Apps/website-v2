@@ -5,7 +5,8 @@ import ChildList from '../../components/ChildList.astro';
 import Sortable from '../../components/Sortable.astro';
 import { ENTITIES, getEntity } from '../../lib/entities';
 import { pricingDetails, pricingModel } from '../../lib/pricing';
-import { configError, db, formToRow } from '../../lib/server';
+import { createSchedule, parseRunAt, scheduleByKey, toLocalInput } from '../../lib/schedule';
+import { configError, db, formatDateTime, formToRow } from '../../lib/server';
 
 const entity = getEntity(Astro.params.entity);
 if (!entity) return new Response('Not found', { status: 404 });
@@ -16,6 +17,9 @@ const isNew = id === 'new';
 let row: Record<string, any> = {};
 let error: string | null = setupError;
 let saved = Astro.url.searchParams.get('saved') === '1';
+const planned = Astro.url.searchParams.get('planned');
+// News can be saved and scheduled in one go.
+const schedulable = entity.key === 'news';
 // Features and plans can be opened from their app or from their own list; `back` remembers which (local paths only).
 const backParam = Astro.url.searchParams.get('back');
 const back = backParam && backParam.startsWith('/') && !backParam.startsWith('//') ? backParam : null;
@@ -38,12 +42,25 @@ if (!setupError && Astro.request.method === 'POST') {
       const target = isChild && !back ? backTo(existing?.app_id) : `${backTo('')}?deleted=${encodeURIComponent(name)}`;
       return Astro.redirect(target, 303);
     }
+    // Check the time before saving, so a wrong time saves nothing.
+    const runAt = action === 'schedule' ? parseRunAt(form.get('run_at')) : null;
     const values = await formToRow(entity, form);
+    // A scheduled post is marked as published here; it only goes live with its release.
+    if (runAt) values.published = true;
     const query = isNew
       ? db().from(entity.table).insert(values).select().single()
       : db().from(entity.table).update(values).eq('id', id).select().single();
     const { data, error: saveError } = await query;
     if (saveError) throw new Error(saveError.code === '23505' ? 'Dieser Slug ist schon vergeben.' : saveError.message);
+    if (runAt) {
+      try {
+        const schedule = await createSchedule([`${entity.key}:${data.id}`], runAt);
+        return Astro.redirect(`/${entity.key}/${data.id}?planned=${schedule.id}${keepBack}`, 303);
+      } catch (e) {
+        const message = encodeURIComponent(`Gespeichert, aber nicht geplant: ${(e as Error).message}`);
+        return Astro.redirect(`/${entity.key}/${data.id}?error=${message}${keepBack}`, 303);
+      }
+    }
     return Astro.redirect(`/${entity.key}/${data.id}?saved=1${keepBack}`, 303);
   } catch (e) {
     error = (e as Error).message;
@@ -70,6 +87,17 @@ if (isNew && Object.keys(row).length === 0) {
     row.sort_order = (data?.[0]?.sort_order ?? 0) + 1;
   }
 }
+
+// Scheduling: the release this entry is already part of, or a suggestion for a new one (tomorrow, 9:00).
+let schedule: { plannedFor: string | null; suggested: string; min: string } | undefined;
+if (schedulable && !setupError) {
+  const current = isNew ? undefined : (await scheduleByKey()).get(`${entity.key}:${id}`);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  schedule = { plannedFor: current ? `${formatDateTime(current.run_at)} Uhr` : null, suggested: toLocalInput(tomorrow), min: toLocalInput(new Date()) };
+}
+error ??= Astro.url.searchParams.get('error');
 
 const { data: apps } = setupError ? { data: [] } : await db().from('apps').select('id, name').order('sort_order');
 // On an app's page: its features, and a summary of its prices (edited on the price page).
@@ -103,9 +131,16 @@ const parentApp = isChild ? apps?.find((a) => a.id === row.app_id) : undefined;
   </div>
 
   {saved && <p class="notice notice-ok">Gespeichert. Klicke auf „Website veröffentlichen“, damit die Änderung online geht.</p>}
+  {
+    planned && schedule?.plannedFor && (
+      <p class="notice notice-ok">
+        Gespeichert und geplant für {schedule.plannedFor}. <a href={`/geplant/#s-${planned}`}>Zur Planung</a>
+      </p>
+    )
+  }
   {error && <p class="notice notice-error">{error}</p>}
 
-  {!setupError && <EntityForm entity={entity} row={row} apps={apps ?? []} isNew={isNew} />}
+  {!setupError && <EntityForm entity={entity} row={row} apps={apps ?? []} isNew={isNew} schedule={schedule} />}
 
   {
     onAppPage && (

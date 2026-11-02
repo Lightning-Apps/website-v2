@@ -10,8 +10,10 @@ interface Props {
   isNew: boolean;
   /** Offer the delete button (off when the form edits only part of a row). */
   deletable?: boolean;
+  /** Offer „Speichern & planen“: the time it is already planned for (or null) and the suggested time. */
+  schedule?: { plannedFor: string | null; suggested: string; min: string };
 }
-const { entity, row, apps, isNew, deletable = true } = Astro.props;
+const { entity, row, apps, isNew, deletable = true, schedule } = Astro.props;
 const LANG_LABEL = { de: 'Deutsch', en: 'English' } as const;
 const hasI18n = entity.fields.some((f) => f.i18n);
 
@@ -150,6 +152,7 @@ const platforms = (row.platforms ?? []) as Platform[];
   <div class="form-actions">
     <!-- The clicked button decides the action; Enter in a field uses this first button. -->
     <button class="btn btn-primary" type="submit" name="_action" value="save">{isNew ? `${entity.singular} anlegen` : 'Speichern'}</button>
+    {schedule && !schedule.plannedFor && <button class="btn" type="button" data-schedule-toggle>Planen …</button>}
     {
       !isNew && deletable && (
         <button class="btn btn-danger" type="submit" name="_action" value="delete" formnovalidate data-confirm={`${entity.singular} wirklich endgültig löschen?`}>
@@ -158,6 +161,28 @@ const platforms = (row.platforms ?? []) as Platform[];
       )
     }
   </div>
+  {
+    schedule?.plannedFor && (
+      <p class="muted schedule-note">
+        Geplant für {schedule.plannedFor}. Was du bis dahin speicherst, geht zu diesem Zeitpunkt mit online. <a href="/geplant/">Planung ansehen</a>
+      </p>
+    )
+  }
+  {
+    schedule && !schedule.plannedFor && (
+      <div class="panel schedule-panel" data-schedule-panel hidden>
+        <label>
+          Online gehen am
+          <input type="datetime-local" name="run_at" value={schedule.suggested} min={schedule.min} data-run-at />
+        </label>
+        <button class="btn btn-primary" type="submit" name="_action" value="schedule" data-schedule-submit>Speichern & planen</button>
+        <p class="help">
+          Speichert den {entity.singular} als veröffentlicht und plant ihn ein. Online geht er erst zum Zeitpunkt, allein: andere offene Änderungen bleiben offen. Das
+          Datum des Beitrags wird dann auf den Tag der Veröffentlichung gesetzt.
+        </p>
+      </div>
+    )
+  }
 </form>
 
 <script>
@@ -227,6 +252,28 @@ const platforms = (row.platforms ?? []) as Platform[];
     const render = () => (preview.innerHTML = marked.parse(input.value || '*Vorschau*', { async: false }));
     input.addEventListener('input', render);
     render();
+  });
+
+  // Save & schedule: reveal the time picker, check the time before sending.
+  const schedulePanel = document.querySelector<HTMLElement>('[data-schedule-panel]');
+  const scheduleToggle = document.querySelector<HTMLButtonElement>('[data-schedule-toggle]');
+  scheduleToggle?.addEventListener('click', () => {
+    schedulePanel!.hidden = false;
+    scheduleToggle.hidden = true;
+    schedulePanel!.querySelector<HTMLInputElement>('[data-run-at]')!.focus();
+  });
+  document.querySelector('[data-schedule-submit]')?.addEventListener('click', (e) => {
+    const input = schedulePanel!.querySelector<HTMLInputElement>('[data-run-at]')!;
+    const at = new Date(input.value);
+    if (Number.isNaN(at.getTime()) || at.getTime() < Date.now() + 60_000) {
+      e.preventDefault();
+      input.setCustomValidity('Bitte einen Zeitpunkt in der Zukunft wählen.');
+      input.reportValidity();
+      input.addEventListener('input', () => input.setCustomValidity(''), { once: true });
+      return;
+    }
+    const when = at.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+    if (!confirm(`Speichern und für ${when} Uhr planen?`)) e.preventDefault();
   });
 
   // Keep the color code next to the picker in sync
@@ -324,4 +371,11 @@ const platforms = (row.platforms ?? []) as Platform[];
   .platform select { width: auto; padding: 4px 6px; font-size: 12px; }
 
   .form-actions { display: flex; gap: 10px; }
+  .form-actions [hidden] { display: none; }
+  .schedule-note { margin: 0; font-size: 13px; }
+  .schedule-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .schedule-panel[hidden] { display: none; }
+  .schedule-panel label { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+  .schedule-panel input { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .schedule-panel .help { flex-basis: 100%; }
 </style>
