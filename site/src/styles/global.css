@@ -120,9 +120,11 @@ p { margin: 0; }
 }
 .badge-available { background: color-mix(in srgb, #30d158 18%, transparent); color: #1a8f3a; }
 .badge-coming_soon { background: color-mix(in srgb, #ff9f0a 20%, transparent); color: #b25e00; }
+.badge-beta { background: color-mix(in srgb, #0a84ff 16%, transparent); color: #0066cc; }
 @media (prefers-color-scheme: dark) {
   .badge-available { color: #30d158; }
   .badge-coming_soon { color: #ffb340; }
+  .badge-beta { color: #409cff; }
 }
 
 /* Grids & cards */

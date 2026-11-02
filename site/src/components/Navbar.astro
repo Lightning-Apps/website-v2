@@ -1,7 +1,7 @@
 ---
 import Logo from './Logo.astro';
 import AppIcon from './AppIcon.astro';
-import { getApps, hasArchive } from '../lib/content';
+import { betaUrl, getApps, hasArchive } from '../lib/content';
 import { LOCALES, localizePath, switchLocalePath, useTranslations, type Locale } from '../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -54,7 +54,10 @@ const projectsHref = `${localizePath(lang)}#projects`;
                       <a class="mega-app" href={localizePath(lang, `apps/${app.slug}`)}>
                         <AppIcon app={app} size={44} />
                         <span class="mega-app-text">
-                          <span class="mega-app-name">{app.name}</span>
+                          <span class="mega-app-name">
+                            {app.name}
+                            {betaUrl(app) && <span class="badge badge-beta mega-beta">{t('beta.badge')}</span>}
+                          </span>
                           <span class="mega-app-tagline">{pick(app, 'tagline', lang)}</span>
                         </span>
                       </a>
@@ -319,7 +322,8 @@ const projectsHref = `${localizePath(lang)}#projects`;
   }
   .mega-app:hover { background: color-mix(in srgb, var(--text) 6%, transparent); text-decoration: none; }
   .mega-app-text { display: grid; }
-  .mega-app-name { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; }
+  .mega-app-name { display: flex; align-items: center; gap: 8px; font-size: 21px; font-weight: 600; letter-spacing: -0.02em; }
+  .mega-beta { padding: 1px 7px; font-size: 11px; }
   .mega-app-tagline { color: var(--text-secondary); font-size: 12px; }
 
   .nav-scrim {

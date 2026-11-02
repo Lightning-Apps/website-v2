@@ -1,0 +1,80 @@
+---
+import QRCode from 'qrcode';
+import AppIcon from './AppIcon.astro';
+import { type App } from '../lib/content';
+import { useTranslations, type Locale } from '../i18n/ui';
+import { pick } from '@lightning/shared';
+
+interface Props {
+  app: App;
+  url: string;
+  lang: Locale;
+}
+const { app, url, lang } = Astro.props;
+const t = useTranslations(lang);
+// Rendered at build time: no third-party QR service sees the visitor.
+const qr = await QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
+const note = pick(app, 'testflight_note', lang);
+---
+
+<dialog class="beta-dialog" id="beta-dialog" aria-labelledby="beta-dialog-title">
+  <form method="dialog" class="beta-close-form">
+    <button class="beta-close" aria-label={t('beta.close')}>
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+    </button>
+  </form>
+  <AppIcon app={app} size={56} />
+  <h2 class="headline-m" id="beta-dialog-title">{app.name}</h2>
+  <p class="beta-sub">{t('beta.title')}</p>
+  {note && <p class="beta-note">{note}</p>}
+  <div class="beta-qr" set:html={qr} role="img" aria-label={`QR-Code: ${url}`} />
+  <p class="beta-hint">{t('beta.scan')}<br />{t('beta.app')}</p>
+  <a class="chevron-link beta-url" href={url} rel="noopener">{url.replace('https://', '')}</a>
+</dialog>
+
+<script>
+  const dialog = document.getElementById('beta-dialog') as HTMLDialogElement | null;
+  document.querySelectorAll('[data-beta-qr]').forEach((button) => button.addEventListener('click', () => dialog?.showModal()));
+  // A click on the backdrop closes the dialog.
+  dialog?.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+</script>
+
+<style>
+  .beta-dialog {
+    width: min(380px, calc(100% - 32px));
+    padding: 36px 32px 28px;
+    border: 0;
+    border-radius: var(--radius-l);
+    background: var(--bg-elevated);
+    color: var(--text);
+    text-align: center;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 0.25);
+  }
+  .beta-dialog[open] { display: grid; justify-items: center; gap: 8px; animation: beta-in 0.25s var(--ease); }
+  .beta-dialog::backdrop { background: rgb(0 0 0 / 0.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .beta-dialog h2 { margin-top: 8px; }
+  .beta-close-form { position: absolute; top: 14px; right: 14px; margin: 0; }
+  .beta-close {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--text) 8%, transparent);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .beta-close:hover { color: var(--text); }
+  .beta-sub { color: var(--text-secondary); font-size: 17px; }
+  .beta-note { font-size: 15px; max-width: 30ch; }
+  /* Always dark on white, so phone cameras read it in dark mode too. */
+  .beta-qr { width: 200px; margin: 16px 0 8px; padding: 14px; border-radius: 16px; background: #fff; }
+  .beta-qr :global(svg) { display: block; width: 100%; height: auto; }
+  .beta-hint { font-size: 14px; color: var(--text-secondary); line-height: 1.45; }
+  .beta-url { margin-top: 6px; font-size: 14px; word-break: break-all; }
+  @keyframes beta-in { from { opacity: 0; transform: scale(0.96); } }
+  @media (prefers-reduced-motion: reduce) { .beta-dialog[open] { animation: none; } }
+</style>

@@ -1,6 +1,6 @@
 ---
 import AppIcon from './AppIcon.astro';
-import { media, type App } from '../lib/content';
+import { betaUrl, media, type App } from '../lib/content';
 import { localizePath, useTranslations, type Locale } from '../i18n/ui';
 import { pick } from '@lightning/shared';
 
@@ -19,7 +19,10 @@ const detail = localizePath(lang, `apps/${app.slug}`);
     <AppIcon app={app} size={72} />
     <h3 class="headline-m">{app.name}</h3>
     <p class="tile-tagline">{pick(app, 'tagline', lang)}</p>
-    <span class:list={['badge', `badge-${app.status}`]}>{pick(app, 'release_label', lang) || t(`status.${app.status}`)}</span>
+    <span class="tile-badges">
+      <span class:list={['badge', `badge-${app.status}`]}>{pick(app, 'release_label', lang) || t(`status.${app.status}`)}</span>
+      {betaUrl(app) && <span class="badge badge-beta">{t('beta.badge')}</span>}
+    </span>
     <div class="links tile-links">
       <a class="chevron-link" href={detail}>{t('cta.learnMore')}<span class="visually-hidden"> – {app.name}</span></a>
       {app.app_store_url && <a class="chevron-link" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>}
@@ -45,6 +48,7 @@ const detail = localizePath(lang, `apps/${app.slug}`);
   :global(.section-alt) .tile { background: var(--bg-elevated); }
   .tile-text { display: grid; justify-items: center; gap: 10px; position: relative; z-index: 1; }
   .tile-text h3 { margin-top: 8px; }
+  .tile-badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .tile-tagline { font-size: 21px; line-height: 1.24; }
   .tile-links { margin-top: 8px; font-size: 17px; }
   .tile-visual { flex: 1; display: flex; align-items: flex-end; justify-content: center; margin-top: 28px; }

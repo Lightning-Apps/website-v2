@@ -3,7 +3,8 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AppIcon from '../../../components/AppIcon.astro';
 import NewsCard from '../../../components/NewsCard.astro';
 import AppPricing from '../../../components/AppPricing.astro';
-import { getAllApps, getFeatures, getNews, getPlans, media, renderMarkdown, type App } from '../../../lib/content';
+import BetaDialog from '../../../components/BetaDialog.astro';
+import { betaUrl, getAllApps, getFeatures, getNews, getPlans, media, renderMarkdown, type App } from '../../../lib/content';
 import { hasPricing, priceLabel } from '../../../lib/pricing';
 import { LOCALES, localizePath, useTranslations, type Locale } from '../../../i18n/ui';
 import { activePeriod, pick } from '@lightning/shared';
@@ -22,6 +23,7 @@ const showPricing = hasPricing(app);
 const price = showPricing ? priceLabel(app, plans, lang) : null;
 const related = news.filter((n) => n.related_app_id === app.uuid).slice(0, 3);
 const hero = media(app.hero_path);
+const beta = betaUrl(app);
 const body = pick(app, 'body', lang);
 const period = activePeriod(app, lang);
 const archiveNote = pick(app, 'archive_note', lang);
@@ -59,6 +61,8 @@ const structured = showPricing && {
         {
           app.app_store_url ? (
             <a class="button button-small" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>
+          ) : beta ? (
+            <a class="button button-small" href={beta} rel="noopener">{t('beta.join')}</a>
           ) : (
             <span class="button button-small is-disabled">{statusLabel}</span>
           )
@@ -87,10 +91,23 @@ const structured = showPricing && {
       <AppIcon app={app} size={120} />
       <h1 class="headline-xl">{app.name}</h1>
       <p class="hero-tagline">{pick(app, 'tagline', lang)}</p>
-      <span class:list={['badge', !app.archived && `badge-${app.status}`]}>{statusLabel}</span>
+      <span class="badges">
+        <span class:list={['badge', !app.archived && `badge-${app.status}`]}>{statusLabel}</span>
+        {beta && <span class="badge badge-beta">{t('beta.badge')}</span>}
+      </span>
       {
-        app.app_store_url && (
+        app.app_store_url ? (
           <a class="button" href={app.app_store_url} rel="noopener">{t('cta.download')}</a>
+        ) : (
+          beta && <a class="button" href={beta} rel="noopener">{t('beta.join')}</a>
+        )
+      }
+      {
+        beta && (
+          <span class="links beta-links">
+            {app.app_store_url && <a class="chevron-link" href={beta} rel="noopener">{t('beta.join')}</a>}
+            <button class="chevron-link beta-qr-link" type="button" data-beta-qr aria-haspopup="dialog">{t('beta.showQr')}</button>
+          </span>
         )
       }
       {price && <a class="hero-price" href="#pricing">{price}</a>}
@@ -165,6 +182,7 @@ const structured = showPricing && {
       </section>
     )
   }
+  {beta && <BetaDialog app={app} url={beta} lang={lang} />}
   {structured && <script type="application/ld+json" set:html={JSON.stringify(structured)} />}
 </BaseLayout>
 
@@ -207,6 +225,11 @@ const structured = showPricing && {
   .hero-text h1 { margin-top: 12px; }
   .hero-tagline { font-size: clamp(24px, 3.4vw, 32px); font-weight: 500; }
   .hero-text .button { background: var(--accent); margin-top: 10px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .beta-links { font-size: 17px; }
+  .beta-qr-link { padding: 0; border: 0; background: none; font: inherit; color: var(--link); cursor: pointer; }
+  /* On a phone the link itself opens TestFlight; a code to scan only helps on other devices. */
+  @media (hover: none) and (pointer: coarse) { .beta-qr-link { display: none; } }
   .hero-price { font-size: 14px; color: var(--text-secondary); }
   .hero-price:hover { color: var(--text); }
   .hero-visual { display: flex; justify-content: center; margin-top: 48px; }

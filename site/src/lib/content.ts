@@ -68,3 +68,8 @@ export function media(path: string | null | undefined): string | null {
 export function renderMarkdown(source: string): string {
   return marked.parse(source, { async: false });
 }
+
+/** The public TestFlight link, if the app has an open beta (archived apps have none). */
+export function betaUrl(app: App): string | null {
+  return app.archived ? null : app.testflight_url;
+}

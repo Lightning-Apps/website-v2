@@ -37,6 +37,8 @@ export interface Field {
   required?: boolean;
   options?: readonly { value: string; label: string }[];
   help?: string;
+  /** URLs only: the link must start with this. */
+  prefix?: string;
   /** Edited elsewhere (e.g. on the Startseite page): not in the form, but labelled in the change list. */
   formHidden?: boolean;
 }
@@ -91,6 +93,12 @@ const pricingFields: Field[] = [
   { name: 'trial_days', label: 'Kostenloser Testzeitraum (Tage)', type: 'count' },
   { name: 'family_sharing', label: 'Familienfreigabe', type: 'checkbox' },
   { name: 'pricing_note', label: 'Preishinweis', type: 'textarea', i18n: true, help: 'Optional, z. B. „Einführungspreis bis Ende Dezember“.' },
+];
+
+const testflightFields: Field[] = [
+  { name: 'testflight', label: 'TestFlight', type: 'section', help: 'Öffentliche Beta: Solange ein Link eingetragen ist, zeigt die Website „Beta testen“ und ein Beta-Label.' },
+  { name: 'testflight_url', label: 'Öffentlicher TestFlight-Link', type: 'url', prefix: 'https://testflight.apple.com/join/', help: 'z. B. https://testflight.apple.com/join/AbCd1234 – leer lassen, wenn es keine öffentliche Beta gibt.' },
+  { name: 'testflight_note', label: 'Beta-Hinweis', type: 'textarea', i18n: true, help: 'Optional, z. B. „Teste die neuen Widgets vor dem Release.“' },
 ];
 
 const slug: Field = { name: 'slug', label: 'Slug (URL)', type: 'text', required: true, help: 'Nur Kleinbuchstaben, Zahlen und Bindestriche, z. B. „mein-beitrag“.' };
@@ -150,6 +158,7 @@ export const ENTITIES: Record<EntityKey, Entity> = {
       sortOrder,
       published,
       ...pricingFields,
+      ...testflightFields,
       ...archiveFields,
     ],
   },

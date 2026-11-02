@@ -73,6 +73,9 @@ export async function formToRow(entity: Entity, form: FormData): Promise<Record<
           break;
         }
         case 'url':
+          if (text && field.prefix && !text.startsWith(field.prefix)) throw new Error(`${field.label} muss mit ${field.prefix} beginnen.`);
+          row[column] = text || null;
+          break;
         case 'app':
           row[column] = text || null;
           break;

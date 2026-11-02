@@ -70,7 +70,7 @@ const platforms = (row.platforms ?? []) as Platform[];
               )}
 
               {field.type === 'text' && <input id={id} name={column} type="text" value={value ?? ''} required={field.required && lang !== 'en'} pattern={field.name === 'slug' ? '[a-z0-9-]+' : undefined} placeholder={placeholder} data-translation-of={source} />}
-              {field.type === 'url' && <input id={id} name={column} type="url" value={value ?? ''} placeholder="https://" />}
+              {field.type === 'url' && <input id={id} name={column} type="url" value={value ?? ''} placeholder={field.prefix ?? 'https://'} />}
               {field.type === 'number' && <input id={id} name={column} type="number" value={value ?? 0} step="1" />}
               {field.type === 'price' && (
                 <div class="price-row">

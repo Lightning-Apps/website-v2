@@ -97,6 +97,10 @@ const apps = defineCollection({
     family_sharing: z.boolean().default(false),
     pricing_note_de: z.string().default(''),
     pricing_note_en: z.string().default(''),
+    // TestFlight (defaults for releases from before it existed)
+    testflight_url: z.string().nullable().default(null),
+    testflight_note_de: z.string().default(''),
+    testflight_note_en: z.string().default(''),
     ...archive,
   }),
 });

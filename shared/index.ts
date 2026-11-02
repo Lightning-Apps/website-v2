@@ -71,6 +71,10 @@ export interface AppRow extends Row, Archivable {
   family_sharing: boolean;
   pricing_note_de: string;
   pricing_note_en: string;
+  /** Public TestFlight invitation; null = no public beta. */
+  testflight_url: string | null;
+  testflight_note_de: string;
+  testflight_note_en: string;
 }
 
 /** A subscription or in-app purchase of an app. */
