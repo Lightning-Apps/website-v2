@@ -115,7 +115,7 @@ export const ENTITIES: Record<EntityKey, Entity> = {
     orderBy: { column: 'published_at', ascending: false },
     fields: [
       { name: 'title', label: 'Titel', type: 'text', i18n: true, required: true },
-      slug,
+      { ...slug, help: 'Nur Kleinbuchstaben, Zahlen und Bindestriche. Die URL enthält davor das Datum: /newsroom/20260101/mein-beitrag/. Pro Tag muss der Slug eindeutig sein.' },
       { name: 'published_at', label: 'Datum', type: 'date', required: true },
       {
         name: 'category',

@@ -150,7 +150,8 @@ const projects = defineCollection({
 });
 
 const news = defineCollection({
-  loader: () => rows('news'),
+  // Slugs only have to be unique per day, so the database id is the key.
+  loader: () => rows('news', 'id'),
   schema: z.object({
     ...base,
     slug: z.string(),

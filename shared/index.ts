@@ -21,6 +21,11 @@ export type PlanPeriod = (typeof PLAN_PERIODS)[number];
 
 export const MEDIA_BUCKET = 'media';
 
+/** Path of a news post below the language, built from its date: `newsroom/20260101/mein-beitrag`. */
+export function newsPath(item: { published_at: string; slug: string }): string {
+  return `newsroom/${item.published_at.replaceAll('-', '')}/${item.slug}`;
+}
+
 interface Row {
   id: string;
   published: boolean;

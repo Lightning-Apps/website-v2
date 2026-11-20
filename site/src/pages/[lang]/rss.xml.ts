@@ -2,7 +2,7 @@ import rss from '@astrojs/rss';
 import type { APIContext } from 'astro';
 import { getNews } from '../../lib/content';
 import { localeStaticPaths, localizePath, type Locale } from '../../i18n/ui';
-import { pick } from '@lightning/shared';
+import { newsPath, pick } from '@lightning/shared';
 
 export const getStaticPaths = localeStaticPaths;
 
@@ -18,7 +18,7 @@ export async function GET(context: APIContext) {
       title: pick(item, 'title', lang),
       description: pick(item, 'summary', lang),
       pubDate: new Date(`${item.published_at}T12:00:00Z`),
-      link: localizePath(lang, `newsroom/${item.slug}`),
+      link: localizePath(lang, newsPath(item)),
       categories: [item.category],
     })),
   });

@@ -142,6 +142,7 @@ const platforms = (row.platforms ?? []) as Platform[];
               )}
 
               {field.help && <p class="help">{field.help}</p>}
+              {entity.key === 'news' && field.name === 'slug' && <p class="help news-url">URL: <code data-news-url></code></p>}
             </div>
           );
         }),
@@ -275,6 +276,17 @@ const platforms = (row.platforms ?? []) as Platform[];
     const when = at.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
     if (!confirm(`Speichern und für ${when} Uhr planen?`)) e.preventDefault();
   });
+
+  // News: the URL from date and slug, as the website builds it.
+  const newsUrl = document.querySelector<HTMLElement>('[data-news-url]');
+  if (newsUrl) {
+    const slug = document.querySelector<HTMLInputElement>('#f-slug')!;
+    const date = document.querySelector<HTMLInputElement>('#f-published_at')!;
+    const update = () => (newsUrl.textContent = `/newsroom/${date.value.replaceAll('-', '') || 'JJJJMMTT'}/${slug.value || 'slug'}/`);
+    slug.addEventListener('input', update);
+    date.addEventListener('input', update);
+    update();
+  }
 
   // Keep the color code next to the picker in sync
   document.querySelectorAll<HTMLInputElement>('input[type="color"]').forEach((input) =>

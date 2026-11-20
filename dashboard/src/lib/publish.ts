@@ -268,7 +268,10 @@ export async function publish(selection: string[] | null, options: PublishOption
       const row = change.entity === 'news' ? current.news.find((r) => r.id === change.id) : undefined;
       if (!row || row.published_at === options.newsDate || visible('news', baseline.news.find((r) => r.id === change.id), baseline)) continue;
       const { error } = await db().from('news').update({ published_at: options.newsDate }).eq('id', row.id);
-      if (error) throw new Error(`Datum von „${row.title_de}“ konnte nicht gesetzt werden: ${error.message}`);
+      if (error) {
+        const reason = error.code === '23505' ? `Am ${options.newsDate} gibt es schon einen Beitrag mit dem Slug „${row.slug}“.` : error.message;
+        throw new Error(`Datum von „${row.title_de}“ konnte nicht gesetzt werden: ${reason}`);
+      }
       row.published_at = options.newsDate;
     }
   }

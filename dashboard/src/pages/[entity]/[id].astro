@@ -51,7 +51,7 @@ if (!setupError && Astro.request.method === 'POST') {
       ? db().from(entity.table).insert(values).select().single()
       : db().from(entity.table).update(values).eq('id', id).select().single();
     const { data, error: saveError } = await query;
-    if (saveError) throw new Error(saveError.code === '23505' ? 'Dieser Slug ist schon vergeben.' : saveError.message);
+    if (saveError) throw new Error(saveError.code === '23505' ? (entity.key === 'news' ? 'An diesem Datum gibt es schon einen Beitrag mit diesem Slug.' : 'Dieser Slug ist schon vergeben.') : saveError.message);
     if (runAt) {
       try {
         const schedule = await createSchedule([`${entity.key}:${data.id}`], runAt);

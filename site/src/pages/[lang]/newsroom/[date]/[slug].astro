@@ -1,13 +1,14 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import AppIcon from '../../../components/AppIcon.astro';
-import { getAllApps, getNews, media, renderMarkdown, type News } from '../../../lib/content';
-import { LOCALES, formatDate, localizePath, useTranslations, type Locale } from '../../../i18n/ui';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import AppIcon from '../../../../components/AppIcon.astro';
+import { getAllApps, getNews, media, renderMarkdown, type News } from '../../../../lib/content';
+import { LOCALES, formatDate, localizePath, useTranslations, type Locale } from '../../../../i18n/ui';
 import { pick } from '@lightning/shared';
 
 export async function getStaticPaths() {
   const news = await getNews();
-  return LOCALES.flatMap((lang) => news.map((item) => ({ params: { lang, slug: item.slug }, props: { item } })));
+  // URL: /<lang>/newsroom/20260101/<slug>/, the date comes from the post.
+  return LOCALES.flatMap((lang) => news.map((item) => ({ params: { lang, date: item.published_at.replaceAll('-', ''), slug: item.slug }, props: { item } })));
 }
 
 const { item } = Astro.props as { item: News };
